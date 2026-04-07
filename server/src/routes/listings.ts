@@ -26,39 +26,47 @@ const createListingSchema = z.object({
   images: z.array(z.string().url()).optional().default([]),
 });
 
+const listingsQuerySchema = z.object({
+  city: z.string().optional(),
+  locality: z.string().optional(),
+  room_type: z.enum(['single', 'double', 'shared']).optional(),
+  property_type: z.enum(['pg', 'hostel', 'apartment', 'flat']).optional(),
+  food_included: z.enum(['true', 'false']).optional(),
+  gender: z.enum(['male', 'female', 'any']).optional(),
+  price_min: z.coerce.number().int().positive().optional(),
+  price_max: z.coerce.number().int().positive().optional(),
+  page: z.coerce.number().int().positive().default(1),
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+});
+
 // GET /api/listings — public list with filters
 router.get('/', async (req, res) => {
-  const {
-    city, locality, room_type, property_type,
-    food_included, gender, price_min, price_max,
-    page = '1', limit = '20',
-  } = req.query;
-
+  const parsed = listingsQuerySchema.safeParse(req.query);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.issues[0].message }); return;
+  }
+  const { city, locality, room_type, property_type, food_included, gender, price_min, price_max, page, limit } = parsed.data;
   const conditions: SQL[] = [eq(listings.status, 'active')];
-  if (city) conditions.push(eq(listings.city, city as string));
-  if (locality) conditions.push(eq(listings.locality, locality as string));
-  if (room_type) conditions.push(eq(listings.roomType, room_type as 'single' | 'double' | 'shared'));
-  if (property_type) conditions.push(eq(listings.propertyType, property_type as 'pg' | 'hostel' | 'apartment' | 'flat'));
+  if (city) conditions.push(eq(listings.city, city));
+  if (locality) conditions.push(eq(listings.locality, locality));
+  if (room_type) conditions.push(eq(listings.roomType, room_type));
+  if (property_type) conditions.push(eq(listings.propertyType, property_type));
   if (food_included === 'true') conditions.push(eq(listings.foodIncluded, true));
-  if (gender) conditions.push(eq(listings.genderPref, gender as 'male' | 'female' | 'any'));
-  if (price_min) conditions.push(gte(listings.price, parseInt(price_min as string)));
-  if (price_max) conditions.push(lte(listings.price, parseInt(price_max as string)));
+  if (gender) conditions.push(eq(listings.genderPref, gender));
+  if (price_min !== undefined) conditions.push(gte(listings.price, price_min));
+  if (price_max !== undefined) conditions.push(lte(listings.price, price_max));
 
-  const pageNum = Math.max(1, parseInt(page as string));
-  const limitNum = Math.min(50, parseInt(limit as string));
-  const offset = (pageNum - 1) * limitNum;
-
+  const offset = (page - 1) * limit;
   try {
     const rows = await db
       .select()
       .from(listings)
       .where(and(...conditions))
       .orderBy(desc(listings.completenessScore))
-      .limit(limitNum)
+      .limit(limit)
       .offset(offset);
-
     const withBadges = rows.map(l => ({ ...l, badges: getTrustBadges(l) }));
-    res.json({ data: withBadges, page: pageNum, limit: limitNum });
+    res.json({ data: withBadges, page, limit });
   } catch (err) {
     console.error('listings list error:', err);
     res.status(500).json({ error: 'Failed to fetch listings' });
@@ -216,6 +224,7 @@ router.post('/:id/contact', requireAuth, async (req: AuthRequest, res) => {
       .from(users)
       .where(eq(users.id, listing.ownerId))
       .limit(1);
+    if (!owner) { res.status(404).json({ error: 'Owner not found' }); return; }
     res.json({ phone: owner.phone, name: owner.name });
   } catch (err) {
     console.error('contact reveal error:', err);
