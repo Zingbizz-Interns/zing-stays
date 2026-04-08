@@ -85,7 +85,7 @@ export default function ListingFilters() {
               key={value}
               onClick={() => handleChange('property_type', value)}
               className={`w-full text-left px-3 py-2 rounded font-sans text-sm transition-colors ${
-                searchParams.get('property_type') === value
+                searchParams.get('property_type') === value || (!searchParams.get('property_type') && !value)
                   ? 'bg-accent text-accent-foreground'
                   : 'text-muted-foreground hover:text-foreground hover:bg-muted'
               }`}
