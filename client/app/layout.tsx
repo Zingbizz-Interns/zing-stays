@@ -3,6 +3,8 @@ import { IBM_Plex_Mono, Playfair_Display, Source_Sans_3 } from 'next/font/google
 import './globals.css';
 import QueryProvider from '@/components/providers/QueryProvider';
 import AuthProvider from '@/components/providers/AuthProvider';
+import Navbar from '@/components/layout/Navbar';
+import Footer from '@/components/layout/Footer';
 
 const playfair = Playfair_Display({
   subsets: ['latin'],
@@ -31,9 +33,13 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${playfair.variable} ${sourceSans.variable} ${ibmMono.variable}`}>
-      <body className="min-h-screen bg-background font-sans text-foreground antialiased">
+      <body className="font-sans bg-background text-foreground antialiased">
         <QueryProvider>
-          <AuthProvider>{children}</AuthProvider>
+          <AuthProvider>
+            <Navbar />
+            <main>{children}</main>
+            <Footer />
+          </AuthProvider>
         </QueryProvider>
       </body>
     </html>
