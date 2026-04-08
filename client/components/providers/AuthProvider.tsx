@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AuthContext, AuthUser, getStoredAuth } from '@/lib/auth';
 
 export default function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -15,22 +15,27 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
     }
   }, []);
 
-  const login = (newToken: string, newUser: AuthUser) => {
+  const login = useCallback((newToken: string, newUser: AuthUser) => {
     localStorage.setItem('zindstay_token', newToken);
     localStorage.setItem('zindstay_user', JSON.stringify(newUser));
     setToken(newToken);
     setUser(newUser);
-  };
+  }, []);
 
-  const logout = () => {
+  const logout = useCallback(() => {
     localStorage.removeItem('zindstay_token');
     localStorage.removeItem('zindstay_user');
     setToken(null);
     setUser(null);
-  };
+  }, []);
+
+  const value = useMemo(
+    () => ({ user, token, login, logout, isAuthenticated: !!token }),
+    [user, token, login, logout],
+  );
 
   return (
-    <AuthContext.Provider value={{ user, token, login, logout, isAuthenticated: !!token }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );

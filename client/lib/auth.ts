@@ -35,5 +35,9 @@ export function getStoredAuth(): { token: string; user: AuthUser } | null {
 
   if (!token || !userStr) return null;
 
-  return { token, user: JSON.parse(userStr) };
+  try {
+    return { token, user: JSON.parse(userStr) };
+  } catch {
+    return null;
+  }
 }
