@@ -9,6 +9,13 @@ const HOW_IT_WORKS = [
   { step: '02', title: 'Browse & Filter', desc: 'Filter by price, room type, amenities, and gender preference to narrow your choices.' },
   { step: '03', title: 'Contact Owner', desc: 'Verify your email once and get direct access to owner contact details.' },
 ];
+const POPULAR_CITIES = [
+  { name: 'Mumbai', slug: 'mumbai' },
+  { name: 'Bangalore', slug: 'bangalore' },
+  { name: 'Delhi', slug: 'delhi' },
+  { name: 'Pune', slug: 'pune' },
+  { name: 'Hyderabad', slug: 'hyderabad' },
+];
 
 export default function HomePage() {
   return (
@@ -38,9 +45,9 @@ export default function HomePage() {
           </div>
           <div className="flex items-center justify-center gap-6 flex-wrap">
             <span className="font-mono text-xs text-muted-foreground uppercase tracking-[0.1em]">Popular:</span>
-            {['Mumbai', 'Bangalore', 'Delhi', 'Pune', 'Hyderabad'].map(city => (
-              <Link key={city} href={`/listings?city=${city}`} className="font-sans text-sm text-muted-foreground hover:text-accent transition-colors underline-offset-4 hover:underline decoration-accent">
-                {city}
+            {POPULAR_CITIES.map(({ name, slug }) => (
+              <Link key={slug} href={`/${slug}`} className="font-sans text-sm text-muted-foreground hover:text-accent transition-colors underline-offset-4 hover:underline decoration-accent">
+                {name}
               </Link>
             ))}
           </div>

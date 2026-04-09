@@ -31,7 +31,11 @@
       "Bash(node -e \"const p = require\\('./package.json'\\); console.log\\('Next:', p.dependencies.next, 'React:', p.dependencies.react\\)\")",
       "Bash(mkdir -p \"D:/Developer/zingBizz/zingbrokers/client/app/[city]\")",
       "Bash(mkdir -p \"D:/Developer/zingBizz/zingbrokers/client/app/[city]/[locality]\")",
-      "Bash(mkdir -p \"D:/Developer/zingBizz/zingbrokers/client/app/[city]/[locality]/[type]\")"
+      "Bash(mkdir -p \"D:/Developer/zingBizz/zingbrokers/client/app/[city]/[locality]/[type]\")",
+      "Bash(sqlite3:*)",
+      "Bash(ls /d/Developer/zingBizz/zingbrokers/client/.env*)",
+      "Bash(ls /d/Developer/zingBizz/zingbrokers/.env*)",
+      "Bash(grep -n \"const { city, locality\" /d/Developer/zingBizz/zingbrokers/client/app/\\\\[city\\\\]/\\\\[locality\\\\]/page.tsx)"
     ]
   }
 }

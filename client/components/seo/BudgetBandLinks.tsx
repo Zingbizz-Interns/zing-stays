@@ -1,42 +1,39 @@
 import Link from 'next/link';
 
 interface BudgetBandLinksProps {
-  citySlug: string;
+  cityId: number;
+  citySlug?: string;
+  localityId?: number;
   localitySlug?: string;
   minPrice: number;
   maxPrice: number;
 }
 
-interface BudgetBand {
-  label: string;
-  max?: number;
-  min?: number;
-}
+const ALL_BANDS = [5000, 8000, 10000, 15000, 20000] as const;
 
-function getBands(minPrice: number, maxPrice: number): BudgetBand[] {
-  const bands: BudgetBand[] = [];
-  if (maxPrice > 5000) bands.push({ label: 'Under ₹5,000', max: 5000 });
-  if (maxPrice > 10000) bands.push({ label: 'Under ₹10,000', max: 10000 });
-  if (maxPrice > 15000) bands.push({ label: 'Under ₹15,000', max: 15000 });
-  if (minPrice < 15000 && maxPrice > 15000)
-    bands.push({ label: '₹15,000+', min: 15000 });
-  return bands;
+function getRelevantBands(minPrice: number): number[] {
+  return ALL_BANDS.filter((b) => b > minPrice);
 }
 
 export default function BudgetBandLinks({
+  cityId,
   citySlug,
+  localityId,
   localitySlug,
   minPrice,
   maxPrice,
 }: BudgetBandLinksProps) {
-  const bands = getBands(minPrice, maxPrice);
+  if (maxPrice === 0) return null;
+  const bands = getRelevantBands(minPrice);
   if (bands.length === 0) return null;
 
-  function bandHref(band: BudgetBand) {
-    const params = new URLSearchParams({ city: citySlug });
-    if (localitySlug) params.set('locality', localitySlug);
-    if (band.max) params.set('price_max', String(band.max));
-    if (band.min) params.set('price_min', String(band.min));
+  function bandHref(band: number): string {
+    if (citySlug && localitySlug) {
+      return `/${citySlug}/${localitySlug}/under-${band}`;
+    }
+    const params = new URLSearchParams({ cityId: String(cityId) });
+    if (localityId) params.set('localityId', String(localityId));
+    params.set('price_max', String(band));
     return `/listings?${params.toString()}`;
   }
 
@@ -46,11 +43,11 @@ export default function BudgetBandLinks({
       <div className="flex flex-wrap gap-3">
         {bands.map((band) => (
           <Link
-            key={band.label}
+            key={band}
             href={bandHref(band)}
             className="px-4 py-2 border border-border rounded-lg font-sans text-sm hover:border-accent hover:text-accent transition-colors"
           >
-            {band.label}
+            Under ₹{band.toLocaleString('en-IN')}
           </Link>
         ))}
       </div>

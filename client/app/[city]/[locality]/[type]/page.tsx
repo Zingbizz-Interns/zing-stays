@@ -1,8 +1,9 @@
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
-import ListingCard from '@/components/listings/ListingCard';
 import PropertyTypeLinks from '@/components/seo/PropertyTypeLinks';
 import BudgetBandLinks from '@/components/seo/BudgetBandLinks';
+import SeoListingCard from '@/components/seo/SeoListingCard';
+import SeoPageTracker from '@/components/seo/SeoPageTracker';
 import type { ListingCardData } from '@/lib/types';
 
 export const revalidate = 3600;
@@ -101,6 +102,14 @@ export default async function TypePage({
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
+      <SeoPageTracker
+        city={city.name}
+        citySlug={city.slug}
+        locality={locality.name}
+        localitySlug={locality.slug}
+        propertyType={type}
+        pageType="seo_locality_type"
+      />
       <div className="max-w-content mx-auto px-6 py-12 space-y-12">
         {/* Breadcrumb */}
         <nav className="font-mono text-xs text-muted-foreground uppercase tracking-wider flex items-center gap-2">
@@ -155,7 +164,13 @@ export default async function TypePage({
             </h2>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {listingCards.map((l) => (
-                <ListingCard key={l.id} listing={l} />
+                <SeoListingCard
+                  key={l.id}
+                  listing={l}
+                  city={city.name}
+                  locality={locality.name}
+                  pageType="seo_locality_type"
+                />
               ))}
             </div>
           </div>
@@ -168,8 +183,8 @@ export default async function TypePage({
         {/* Budget bands */}
         {priceRange.min > 0 && (
           <BudgetBandLinks
-            citySlug={city.slug}
-            localitySlug={locality.slug}
+            cityId={city.id}
+            localityId={locality.id}
             minPrice={priceRange.min}
             maxPrice={priceRange.max}
           />

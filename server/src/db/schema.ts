@@ -11,13 +11,19 @@ import {
   index,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
-import { sql } from 'drizzle-orm';
 
 export const intentEnum = pgEnum('intent', ['buy', 'rent']);
 export const roomTypeEnum = pgEnum('room_type', ['single', 'double', 'shared']);
 export const propertyTypeEnum = pgEnum('property_type', ['pg', 'hostel', 'apartment', 'flat']);
 export const genderPrefEnum = pgEnum('gender_pref', ['male', 'female', 'any']);
 export const listingStatusEnum = pgEnum('listing_status', ['draft', 'active', 'inactive']);
+export const contentTypeEnum = pgEnum('content_type', [
+  'area_guide',
+  'student_guide',
+  'comparison',
+  'rent_advice',
+  'locality_insight',
+]);
 
 export const cities = pgTable('cities', {
   id: serial('id').primaryKey(),
@@ -68,8 +74,6 @@ export const listings = pgTable('listings', {
   ownerId: integer('owner_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
   title: varchar('title', { length: 200 }).notNull(),
   description: text('description'),
-  city: varchar('city', { length: 100 }).notNull(),
-  locality: varchar('locality', { length: 100 }).notNull(),
   landmark: varchar('landmark', { length: 200 }),
   address: text('address'),
   price: integer('price').notNull(),
@@ -80,18 +84,16 @@ export const listings = pgTable('listings', {
   amenities: jsonb('amenities').$type<string[]>().default([]).notNull(),
   rules: text('rules'),
   images: jsonb('images').$type<string[]>().default([]).notNull(),
-  cityId: integer('city_id').references(() => cities.id).default(sql`NULL`),
-  localityId: integer('locality_id').references(() => localities.id).default(sql`NULL`),
+  cityId: integer('city_id').references(() => cities.id).notNull(),
+  localityId: integer('locality_id').references(() => localities.id).notNull(),
   intent: intentEnum('intent').default('rent').notNull(),
   completenessScore: integer('completeness_score').default(0).notNull(),
   status: listingStatusEnum('status').default('active').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (table) => [
-  index('listings_city_idx').on(table.city),
   index('listings_owner_idx').on(table.ownerId),
   index('listings_status_idx').on(table.status),
-  index('listings_city_status_idx').on(table.city, table.status),
   index('listings_city_id_idx').on(table.cityId),
   index('listings_locality_id_idx').on(table.localityId),
   index('listings_intent_idx').on(table.intent),
@@ -115,6 +117,54 @@ export const contactLeads = pgTable('contact_leads', {
   uniqueIndex('contact_leads_user_listing_uniq').on(table.userId, table.listingId),
 ]);
 
+export const reviewStatusEnum = pgEnum('review_status', ['pending', 'approved', 'rejected']);
+
+export const reviews = pgTable('reviews', {
+  id: serial('id').primaryKey(),
+  userId: integer('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  listingId: integer('listing_id').references(() => listings.id, { onDelete: 'cascade' }).notNull(),
+  rating: integer('rating').notNull(), // 1-5
+  body: text('body').notNull(),
+  status: reviewStatusEnum('status').default('pending').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex('reviews_user_listing_uniq').on(t.userId, t.listingId),
+  index('reviews_listing_idx').on(t.listingId),
+  index('reviews_status_idx').on(t.status),
+]);
+
+export const contentPages = pgTable('content_pages', {
+  id: serial('id').primaryKey(),
+  slug: varchar('slug', { length: 200 }).notNull().unique(),
+  type: contentTypeEnum('type').notNull(),
+  title: varchar('title', { length: 300 }).notNull(),
+  body: text('body').notNull(),
+  cityId: integer('city_id').references(() => cities.id),
+  localityId: integer('locality_id').references(() => localities.id),
+  isPublished: boolean('is_published').default(false).notNull(),
+  publishedAt: timestamp('published_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex('content_slug_idx').on(t.slug),
+  index('content_city_idx').on(t.cityId),
+  index('content_type_idx').on(t.type),
+]);
+
+export const priceSnapshots = pgTable('price_snapshots', {
+  id: serial('id').primaryKey(),
+  localityId: integer('locality_id').references(() => localities.id, { onDelete: 'cascade' }).notNull(),
+  snapshotDate: timestamp('snapshot_date').notNull(),
+  avgPrice: integer('avg_price').notNull(),
+  medianPrice: integer('median_price').notNull(),
+  minPrice: integer('min_price').notNull(),
+  maxPrice: integer('max_price').notNull(),
+  sampleSize: integer('sample_size').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => [
+  index('snapshots_locality_date_idx').on(t.localityId, t.snapshotDate),
+]);
+
 // TypeScript types
 export type City = typeof cities.$inferSelect;
 export type NewCity = typeof cities.$inferInsert;
@@ -128,3 +178,9 @@ export type Favorite = typeof favorites.$inferSelect;
 export type ContactLead = typeof contactLeads.$inferSelect;
 export type NewContactLead = typeof contactLeads.$inferInsert;
 export type NewFavorite = typeof favorites.$inferInsert;
+export type Review = typeof reviews.$inferSelect;
+export type NewReview = typeof reviews.$inferInsert;
+export type ContentPage = typeof contentPages.$inferSelect;
+export type NewContentPage = typeof contentPages.$inferInsert;
+export type PriceSnapshot = typeof priceSnapshots.$inferSelect;
+export type NewPriceSnapshot = typeof priceSnapshots.$inferInsert;

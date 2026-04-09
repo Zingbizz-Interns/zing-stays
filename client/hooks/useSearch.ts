@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import posthog from 'posthog-js';
 import { api } from '@/lib/api';
 import type { ListingCardData, SearchListingHit } from '@/lib/types';
 
@@ -27,20 +28,30 @@ export function useSearch(filters: SearchFilters) {
     queryKey: ['search', filters],
     queryFn: async () => {
       const response = await api.get<{ hits: SearchListingHit[] }>(`/search?${params.toString()}`);
-      return {
-        hits: response.hits.map<ListingCardData>((hit) => ({
-          id: hit.id,
-          title: hit.title,
-          city: hit.city,
-          locality: hit.locality,
-          price: hit.price,
-          roomType: hit.room_type,
-          propertyType: hit.property_type,
-          images: hit.images ?? [],
-          badges: hit.badges ?? [],
-          foodIncluded: hit.food_included,
-        })),
-      };
+      const hits = response.hits.map<ListingCardData>((hit) => ({
+        id: hit.id,
+        title: hit.title,
+        city: hit.city,
+        locality: hit.locality,
+        price: hit.price,
+        roomType: hit.room_type,
+        propertyType: hit.property_type,
+        images: hit.images ?? [],
+        badges: hit.badges ?? [],
+        foodIncluded: hit.food_included,
+      }));
+      const activeFilters = Object.fromEntries(
+        Object.entries(filters).filter(([key, value]) => key !== 'q' && Boolean(value)),
+      );
+
+      if (filters.q || Object.keys(activeFilters).length > 0) {
+        posthog.capture('search_performed', {
+          query: filters.q ?? '',
+          filters: activeFilters,
+          result_count: hits.length,
+        });
+      }
+      return { hits };
     },
     staleTime: 30 * 1000,
   });

@@ -1,12 +1,17 @@
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
-import ListingCard from '@/components/listings/ListingCard';
 import LocalityLinks from '@/components/seo/LocalityLinks';
 import PropertyTypeLinks from '@/components/seo/PropertyTypeLinks';
 import BudgetBandLinks from '@/components/seo/BudgetBandLinks';
+import SeoListingCard from '@/components/seo/SeoListingCard';
+import SeoPageTracker from '@/components/seo/SeoPageTracker';
 import type { ListingCardData } from '@/lib/types';
+import EMICalculator from '@/components/utilities/EMICalculator';
+import RentEstimator from '@/components/utilities/RentEstimator';
+import PriceTrends from '@/components/utilities/PriceTrends';
 
 export const revalidate = 3600;
+
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api';
 
@@ -22,6 +27,13 @@ interface PropertyTypeStat {
   count: number;
 }
 
+interface GuideSummary {
+  id: number;
+  slug: string;
+  title: string;
+  type: string;
+}
+
 interface LocalityPageData {
   city: { id: number; name: string; slug: string };
   locality: { id: number; name: string; slug: string };
@@ -30,6 +42,16 @@ interface LocalityPageData {
   propertyTypes: PropertyTypeStat[];
   nearbyLocalities: NearbyLocality[];
   meta: { title: string; description: string };
+}
+
+async function getCityGuides(cityId: number): Promise<GuideSummary[]> {
+  try {
+    const res = await fetch(`${API_URL}/content?cityId=${cityId}`, { next: { revalidate: 3600 } });
+    if (!res.ok) return [];
+    return res.json() as Promise<GuideSummary[]>;
+  } catch {
+    return [];
+  }
 }
 
 async function getLocalityData(
@@ -42,6 +64,61 @@ async function getLocalityData(
   if (res.status === 404) return null;
   if (!res.ok) return null;
   return res.json() as Promise<LocalityPageData>;
+}
+
+/** Try PostHog HogQL first; fall back to listing-count endpoint if unconfigured. */
+export async function generateStaticParams(): Promise<{ city: string; locality: string }[]> {
+  const posthogKey = process.env.POSTHOG_PERSONAL_API_KEY;
+  const projectId = process.env.POSTHOG_PROJECT_ID;
+  const posthogHost = process.env.NEXT_PUBLIC_POSTHOG_HOST ?? 'https://app.posthog.com';
+
+  if (posthogKey && projectId) {
+    try {
+      // Prefer explicit slug properties captured with the event payload.
+      const query = `
+        SELECT
+          properties.city_slug AS city_slug,
+          properties.locality_slug AS locality_slug,
+          count() AS views
+        FROM events
+        WHERE event = 'seo_page_viewed'
+          AND properties.page_type = 'seo_locality'
+          AND timestamp >= now() - INTERVAL 30 DAY
+        GROUP BY city_slug, locality_slug
+        HAVING city_slug IS NOT NULL AND city_slug != '' AND locality_slug IS NOT NULL AND locality_slug != ''
+        ORDER BY views DESC
+        LIMIT 100
+      `;
+
+      const res = await fetch(`${posthogHost}/api/projects/${projectId}/query`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${posthogKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ query: { kind: 'HogQLQuery', query } }),
+      });
+
+      if (res.ok) {
+        const data = (await res.json()) as { results: [string, string, number][] };
+        const pairs = (data.results ?? [])
+          .filter(([city, locality]) => city && locality)
+          .map(([city, locality]) => ({ city, locality }));
+        if (pairs.length > 0) return pairs;
+      }
+    } catch {
+      // fall through to listing-count fallback below
+    }
+  }
+
+  // Fallback: top city/locality combinations by active listing count
+  try {
+    const res = await fetch(`${API_URL}/seo/top-params`);
+    if (!res.ok) return [];
+    return res.json() as Promise<{ city: string; locality: string }[]>;
+  } catch {
+    return [];
+  }
 }
 
 export async function generateMetadata({
@@ -76,6 +153,7 @@ export default async function LocalityPage({
   if (!data) notFound();
 
   const { city, locality, stats, listings, propertyTypes, nearbyLocalities } = data;
+  const guides = await getCityGuides(city.id);
 
   const listingCards: ListingCardData[] = listings.map((l) => ({
     ...l,
@@ -100,6 +178,13 @@ export default async function LocalityPage({
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+      <SeoPageTracker
+        city={city.name}
+        citySlug={city.slug}
+        locality={locality.name}
+        localitySlug={locality.slug}
+        pageType="seo_locality"
       />
       <div className="max-w-content mx-auto px-6 py-12 space-y-12">
         {/* Breadcrumb */}
@@ -149,7 +234,13 @@ export default async function LocalityPage({
             </h2>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {listingCards.map((l) => (
-                <ListingCard key={l.id} listing={l} />
+                <SeoListingCard
+                  key={l.id}
+                  listing={l}
+                  city={city.name}
+                  locality={locality.name}
+                  pageType="seo_locality"
+                />
               ))}
             </div>
           </div>
@@ -162,12 +253,43 @@ export default async function LocalityPage({
         {/* Budget bands */}
         {stats.minPrice > 0 && (
           <BudgetBandLinks
+            cityId={city.id}
             citySlug={city.slug}
+            localityId={locality.id}
             localitySlug={locality.slug}
             minPrice={stats.minPrice}
             maxPrice={stats.maxPrice}
           />
         )}
+
+        {/* Area guides */}
+        {guides.length > 0 && (
+          <div>
+            <h2 className="font-display text-xl mb-4">Guides for {city.name}</h2>
+            <div className="flex flex-wrap gap-3">
+              {guides.map((guide) => (
+                <a
+                  key={guide.id}
+                  href={`/guides/${guide.slug}`}
+                  className="rounded-lg border border-border px-4 py-2 font-sans text-sm hover:border-accent hover:text-accent transition-colors"
+                >
+                  {guide.title}
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Utility widgets */}
+        <div className="grid lg:grid-cols-3 gap-6 items-start">
+          <RentEstimator localityId={locality.id} apiBase={API_URL} />
+          <PriceTrends localityId={locality.id} apiBase={API_URL} />
+          {stats.avgPrice > 0 && (
+            <div className="lg:sticky lg:top-24">
+              <EMICalculator defaultPrincipal={stats.avgPrice * 12} />
+            </div>
+          )}
+        </div>
 
         {/* Nearby localities */}
         {nearbyLocalities.length > 0 && (

@@ -1,0 +1,208 @@
+import { notFound } from 'next/navigation';
+import type { Metadata } from 'next';
+import type { ListingCardData } from '@/lib/types';
+import SeoListingCard from '@/components/seo/SeoListingCard';
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api';
+
+interface ContentPage {
+  id: number;
+  slug: string;
+  type: string;
+  title: string;
+  body: string;
+  cityId: number | null;
+  localityId: number | null;
+  isPublished: boolean;
+  publishedAt: string | null;
+  cityName: string | null;
+  citySlug: string | null;
+  localityName: string | null;
+  localitySlug: string | null;
+}
+
+interface RelatedListing extends ListingCardData {
+  foodIncluded: boolean;
+}
+
+async function getPage(slug: string): Promise<ContentPage | null> {
+  const res = await fetch(`${API_URL}/content/${slug}`, { next: { revalidate: 3600 } });
+  if (res.status === 404) return null;
+  if (!res.ok) return null;
+  return res.json() as Promise<ContentPage>;
+}
+
+async function getRelatedListings(localityId: number): Promise<RelatedListing[]> {
+  try {
+    const res = await fetch(
+      `${API_URL}/listings?localityId=${localityId}&status=active&intent=rent&limit=6`,
+      { next: { revalidate: 3600 } },
+    );
+    if (!res.ok) return [];
+    const data = (await res.json()) as { data?: RelatedListing[] } | RelatedListing[];
+    const rows = Array.isArray(data) ? data : (data.data ?? []);
+    return rows.map((l) => ({ ...l, badges: [] }));
+  } catch {
+    return [];
+  }
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  const page = await getPage(slug);
+  if (!page) return { title: 'Guide Not Found | ZingBrokers' };
+  return {
+    title: `${page.title} | ZingBrokers`,
+    description: page.body.slice(0, 160).replace(/[#*>\n]/g, ' ').trim(),
+    alternates: { canonical: `https://zingbrokers.com/guides/${slug}` },
+    robots: { index: true, follow: true },
+  };
+}
+
+/** Escape HTML entities so raw user content can never inject tags. */
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+/**
+ * Convert simple Markdown to HTML.
+ * Input is entity-escaped first, so any HTML/script in the source body
+ * renders as visible text rather than executing.
+ */
+function renderMarkdown(md: string): string {
+  const safe = escapeHtml(md);
+  return safe
+    .replace(/^### (.+)$/gm, '<h3 class="font-display text-xl mt-6 mb-2">$1</h3>')
+    .replace(/^## (.+)$/gm, '<h2 class="font-display text-2xl mt-8 mb-3">$1</h2>')
+    .replace(/^# (.+)$/gm, '<h1 class="font-display text-3xl mt-8 mb-4">$1</h1>')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    .replace(/\n\n/g, '</p><p class="mb-4">')
+    .replace(/^(?!<[hH])(.+)$/gm, (line) => {
+      if (line.trim() === '' || line.startsWith('<')) return line;
+      return `<p class="mb-4">${line}</p>`;
+    });
+}
+
+export default async function GuidePage({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}) {
+  const { slug } = await params;
+  const page = await getPage(slug);
+  if (!page) notFound();
+
+  const relatedListings = page.localityId ? await getRelatedListings(page.localityId) : [];
+
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Article',
+    headline: page.title,
+    datePublished: page.publishedAt,
+    publisher: {
+      '@type': 'Organization',
+      name: 'ZingBrokers',
+      url: 'https://zingbrokers.com',
+    },
+  };
+
+  return (
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+      <div className="max-w-3xl mx-auto px-6 py-12">
+        {/* Breadcrumb */}
+        {(page.cityName || page.localityName) && (
+          <nav className="font-mono text-xs text-muted-foreground uppercase tracking-wider flex items-center gap-2 mb-6">
+            <a href="/" className="hover:text-foreground transition-colors">Home</a>
+            {page.citySlug && page.cityName && (
+              <>
+                <span>/</span>
+                <a href={`/${page.citySlug}`} className="hover:text-foreground transition-colors">
+                  {page.cityName}
+                </a>
+              </>
+            )}
+            {page.citySlug && page.localitySlug && page.localityName && (
+              <>
+                <span>/</span>
+                <a
+                  href={`/${page.citySlug}/${page.localitySlug}`}
+                  className="hover:text-foreground transition-colors"
+                >
+                  {page.localityName}
+                </a>
+              </>
+            )}
+            <span>/</span>
+            <span>Guide</span>
+          </nav>
+        )}
+
+        <div className="mb-6">
+          <span className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
+            {page.type.replace(/_/g, ' ')}
+          </span>
+          <h1 className="font-display text-4xl leading-tight mt-2">{page.title}</h1>
+          {page.publishedAt && (
+            <p className="mt-2 text-sm text-muted-foreground">
+              Published{' '}
+              {new Date(page.publishedAt).toLocaleDateString('en-IN', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+              })}
+            </p>
+          )}
+        </div>
+
+        <article
+          className="prose prose-lg max-w-none font-sans text-foreground"
+          dangerouslySetInnerHTML={{ __html: renderMarkdown(page.body) }}
+        />
+
+        {/* Related listings for this locality */}
+        {relatedListings.length > 0 && page.localityName && (
+          <div className="mt-12">
+            <h2 className="font-display text-2xl mb-6">
+              Listings in {page.localityName}
+              {page.cityName ? `, ${page.cityName}` : ''}
+            </h2>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {relatedListings.map((l) => (
+                <SeoListingCard
+                  key={l.id}
+                  listing={l}
+                  city={page.cityName ?? ''}
+                  locality={page.localityName ?? ''}
+                  pageType="seo_locality"
+                />
+              ))}
+            </div>
+            {page.citySlug && page.localitySlug && (
+              <div className="mt-6">
+                <a
+                  href={`/${page.citySlug}/${page.localitySlug}`}
+                  className="font-sans text-sm text-accent hover:underline"
+                >
+                  See all listings in {page.localityName} →
+                </a>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </>
+  );
+}

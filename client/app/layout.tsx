@@ -1,8 +1,10 @@
 import type { Metadata } from 'next';
 import { IBM_Plex_Mono, Playfair_Display, Source_Sans_3 } from 'next/font/google';
 import './globals.css';
+import { Suspense } from 'react';
 import QueryProvider from '@/components/providers/QueryProvider';
 import AuthProvider from '@/components/providers/AuthProvider';
+import { PHProvider } from '@/components/providers/PostHogProvider';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 
@@ -36,9 +38,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="font-sans bg-background text-foreground antialiased">
         <QueryProvider>
           <AuthProvider>
-            <Navbar />
-            <main>{children}</main>
-            <Footer />
+            <PHProvider>
+              <Suspense>
+                <Navbar />
+                <main>{children}</main>
+                <Footer />
+              </Suspense>
+            </PHProvider>
           </AuthProvider>
         </QueryProvider>
       </body>

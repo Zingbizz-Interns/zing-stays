@@ -1,5 +1,6 @@
 'use client';
 import { useState } from 'react';
+import { usePostHog } from 'posthog-js/react';
 import { useAuth } from '@/lib/auth';
 import { api } from '@/lib/api';
 import Button from '@/components/ui/Button';
@@ -12,10 +13,14 @@ interface ContactInfo {
 
 interface ContactButtonProps {
   listingId: number;
+  city?: string;
+  locality?: string;
+  propertyType?: string;
 }
 
-export default function ContactButton({ listingId }: ContactButtonProps) {
+export default function ContactButton({ listingId, city, locality, propertyType }: ContactButtonProps) {
   const { isAuthenticated } = useAuth();
+  const posthog = usePostHog();
   const [showModal, setShowModal] = useState(false);
   const [contact, setContact] = useState<ContactInfo | null>(null);
   const [loading, setLoading] = useState(false);
@@ -29,6 +34,13 @@ export default function ContactButton({ listingId }: ContactButtonProps) {
     try {
       const res = await api.post<ContactInfo>(`/listings/${listingId}/contact`, {});
       setContact(res);
+      posthog?.capture('contact_revealed', {
+        listing_id: listingId,
+        city,
+        locality,
+        property_type: propertyType,
+        page_type: 'listing_detail',
+      });
     } finally {
       setLoading(false);
     }

@@ -16,8 +16,8 @@ const AMENITY_OPTIONS = ['wifi', 'ac', 'laundry', 'parking', 'cctv', 'gym', 'kit
 
 function calcLocalScore(data: Partial<ListingInput>): number {
   let s = 0;
-  if (data.city) s += 10;
-  if (data.locality) s += 10;
+  if (data.cityId) s += 10;
+  if (data.localityId) s += 10;
   if (data.price) s += 5;
   if (data.roomType) s += 3;
   if (data.propertyType) s += 2;
@@ -119,60 +119,47 @@ export default function ListingForm({ initialData, listingId }: ListingFormProps
               <label className="font-mono text-xs uppercase tracking-[0.1em] text-muted-foreground mb-2 block">
                 City *
               </label>
-              {cityOptions.length > 0 ? (
-                <select
-                  className="h-12 w-full px-4 bg-transparent border border-input rounded-md font-sans text-base focus:outline-none focus:ring-2 focus:ring-ring"
-                  value={data.cityId ?? ''}
-                  onChange={e => {
-                    const selected = cityOptions.find(c => c.id === parseInt(e.target.value, 10));
-                    set('cityId', selected?.id);
-                    set('city', selected?.name ?? '');
-                    set('localityId', undefined);
-                    set('locality', '');
-                  }}
-                >
-                  <option value="">Select city...</option>
-                  {cityOptions.map(c => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </select>
-              ) : (
-                <Input
-                  placeholder="e.g. Bangalore"
-                  value={data.city ?? ''}
-                  onChange={e => set('city', e.target.value)}
-                />
-              )}
-              {errors.city && <p className="font-sans text-xs text-red-600 mt-1">{errors.city}</p>}
+              <select
+                className="h-12 w-full px-4 bg-transparent border border-input rounded-md font-sans text-base focus:outline-none focus:ring-2 focus:ring-ring"
+                value={data.cityId ?? ''}
+                onChange={e => {
+                  const selected = cityOptions.find(c => c.id === parseInt(e.target.value, 10));
+                  set('cityId', selected?.id);
+                  set('localityId', undefined);
+                }}
+              >
+                <option value="">{cityOptions.length > 0 ? 'Select city...' : 'Loading cities...'}</option>
+                {cityOptions.map(c => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+              {errors.cityId && <p className="font-sans text-xs text-red-600 mt-1">{errors.cityId}</p>}
             </div>
             <div>
               <label className="font-mono text-xs uppercase tracking-[0.1em] text-muted-foreground mb-2 block">
                 Locality *
               </label>
-              {localityOptions.length > 0 ? (
-                <select
-                  className="h-12 w-full px-4 bg-transparent border border-input rounded-md font-sans text-base focus:outline-none focus:ring-2 focus:ring-ring"
-                  value={data.localityId ?? ''}
-                  onChange={e => {
-                    const selected = localityOptions.find(l => l.id === parseInt(e.target.value, 10));
-                    set('localityId', selected?.id);
-                    set('locality', selected?.name ?? '');
-                  }}
-                >
-                  <option value="">Select locality...</option>
-                  {localityOptions.map(l => (
-                    <option key={l.id} value={l.id}>{l.name}</option>
-                  ))}
-                </select>
-              ) : (
-                <Input
-                  placeholder={data.cityId ? 'No localities yet' : 'Select city first'}
-                  value={data.locality ?? ''}
-                  onChange={e => set('locality', e.target.value)}
-                  disabled={!!data.cityId && localityOptions.length === 0}
-                />
-              )}
-              {errors.locality && <p className="font-sans text-xs text-red-600 mt-1">{errors.locality}</p>}
+              <select
+                className="h-12 w-full px-4 bg-transparent border border-input rounded-md font-sans text-base focus:outline-none focus:ring-2 focus:ring-ring"
+                value={data.localityId ?? ''}
+                onChange={e => {
+                  const selected = localityOptions.find(l => l.id === parseInt(e.target.value, 10));
+                  set('localityId', selected?.id);
+                }}
+                disabled={!data.cityId || localityOptions.length === 0}
+              >
+                <option value="">
+                  {!data.cityId
+                    ? 'Select city first'
+                    : localityOptions.length > 0
+                      ? 'Select locality...'
+                      : 'No localities available'}
+                </option>
+                {localityOptions.map(l => (
+                  <option key={l.id} value={l.id}>{l.name}</option>
+                ))}
+              </select>
+              {errors.localityId && <p className="font-sans text-xs text-red-600 mt-1">{errors.localityId}</p>}
             </div>
           </div>
           <div>

@@ -4,6 +4,10 @@ import ImageGallery from '@/components/listings/ImageGallery';
 import ContactButton from '@/components/listings/ContactButton';
 import TrustBadge from '@/components/ui/TrustBadge';
 import SectionLabel from '@/components/ui/SectionLabel';
+import EMICalculator from '@/components/utilities/EMICalculator';
+import RentEstimator from '@/components/utilities/RentEstimator';
+import ReviewList from '@/components/listings/ReviewList';
+import ReviewForm from '@/components/listings/ReviewForm';
 
 const BADGE_TYPES = ['verified_owner', 'well_detailed', 'recently_updated'] as const;
 type BadgeType = (typeof BADGE_TYPES)[number];
@@ -38,6 +42,8 @@ interface Listing {
   foodIncluded: boolean;
   genderPref: string;
   ownerName?: string;
+  localityId?: number;
+  hasContacted?: boolean;
 }
 
 async function getListing(id: string): Promise<Listing | null> {
@@ -127,6 +133,18 @@ export default async function ListingDetailPage({
               </p>
             </div>
           )}
+
+          {/* Reviews section */}
+          <div className="mt-10">
+            <SectionLabel>Reviews</SectionLabel>
+            <ReviewList listingId={listing.id} apiBase={process.env.NEXT_PUBLIC_API_URL} />
+          </div>
+
+          {listing.hasContacted && (
+            <div className="mt-6">
+              <ReviewForm listingId={listing.id} apiBase={process.env.NEXT_PUBLIC_API_URL} />
+            </div>
+          )}
         </div>
 
         {/* Right — Sticky booking panel */}
@@ -152,13 +170,22 @@ export default async function ListingDetailPage({
                   </div>
                 ))}
               </div>
-              <ContactButton listingId={listing.id} />
+              <ContactButton
+                listingId={listing.id}
+                city={listing.city}
+                locality={listing.locality}
+                propertyType={listing.propertyType}
+              />
             </div>
             {listing.ownerName && (
               <p className="font-mono text-xs text-center text-muted-foreground uppercase tracking-wide">
                 Listed by {listing.ownerName}
               </p>
             )}
+            {listing.localityId && (
+              <RentEstimator localityId={listing.localityId} apiBase={process.env.NEXT_PUBLIC_API_URL} />
+            )}
+            <EMICalculator defaultPrincipal={listing.price * 12} />
           </div>
         </div>
       </div>

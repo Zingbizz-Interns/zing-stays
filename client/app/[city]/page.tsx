@@ -1,8 +1,10 @@
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
-import ListingCard from '@/components/listings/ListingCard';
 import LocalityLinks from '@/components/seo/LocalityLinks';
 import BudgetBandLinks from '@/components/seo/BudgetBandLinks';
+import SeoListingCard from '@/components/seo/SeoListingCard';
+import SeoPageTracker from '@/components/seo/SeoPageTracker';
+import EMICalculator from '@/components/utilities/EMICalculator';
 import type { ListingCardData } from '@/lib/types';
 
 export const revalidate = 3600;
@@ -107,6 +109,7 @@ export default async function CityPage({
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
+      <SeoPageTracker city={city.name} citySlug={city.slug} pageType="seo_city" />
       <div className="max-w-content mx-auto px-6 py-12 space-y-12">
         {/* Header */}
         <div>
@@ -138,7 +141,7 @@ export default async function CityPage({
             <h2 className="font-display text-2xl mb-6">Latest Listings in {city.name}</h2>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {listingCards.map((l) => (
-                <ListingCard key={l.id} listing={l} />
+                <SeoListingCard key={l.id} listing={l} city={city.name} pageType="seo_city" />
               ))}
             </div>
           </div>
@@ -154,7 +157,7 @@ export default async function CityPage({
               {propertyTypes.map(({ type, count }) => (
                 <a
                   key={type}
-                  href={`/listings?city=${city.slug}&property_type=${type}`}
+                  href={`/listings?cityId=${city.id}&property_type=${type}`}
                   className="px-4 py-2 border border-border rounded-lg font-sans text-sm hover:border-accent hover:text-accent transition-colors"
                 >
                   {type.charAt(0).toUpperCase() + type.slice(1)}
@@ -173,10 +176,16 @@ export default async function CityPage({
         {/* Budget band links */}
         {stats.minPrice > 0 && (
           <BudgetBandLinks
-            citySlug={city.slug}
+            cityId={city.id}
             minPrice={stats.minPrice}
             maxPrice={stats.maxPrice}
           />
+        )}
+
+        {stats.avgPrice > 0 && (
+          <div className="md:sticky md:bottom-6 md:ml-auto md:max-w-sm">
+            <EMICalculator defaultPrincipal={stats.avgPrice * 12} />
+          </div>
         )}
       </div>
     </>

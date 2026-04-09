@@ -4,8 +4,8 @@ import { Listing } from '../db/schema';
 export function calculateCompleteness(listing: Partial<Listing>): number {
   let score = 0;
   // Location + price + room/property type (30)
-  if (listing.city) score += 10;
-  if (listing.locality) score += 10;
+  if (listing.cityId) score += 10;
+  if (listing.localityId) score += 10;
   if (listing.price && listing.price > 0) score += 5;
   if (listing.roomType) score += 3;
   if (listing.propertyType) score += 2;

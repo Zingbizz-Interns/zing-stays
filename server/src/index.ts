@@ -6,7 +6,10 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-import { setupSearchIndex } from './services/search';
+import { setupSearchIndex, reindexAllListings } from './services/search';
+import './workers/searchIndexWorker';
+import './workers/moderationWorker';
+import { schedulePriceSnapshots } from './workers/priceSnapshotWorker';
 import authRoutes from './routes/auth';
 import listingRoutes from './routes/listings';
 import searchRoutes from './routes/search';
@@ -15,6 +18,9 @@ import imageRoutes from './routes/images';
 import adminRoutes from './routes/admin';
 import placesRoutes from './routes/places';
 import seoRoutes from './routes/seo';
+import utilitiesRoutes from './routes/utilities';
+import reviewsRoutes from './routes/reviews';
+import contentRoutes from './routes/content';
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -35,6 +41,9 @@ app.use('/api/images', imageRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api', placesRoutes);
 app.use('/api/seo', seoRoutes);
+app.use('/api/utilities', utilitiesRoutes);
+app.use('/api/reviews', reviewsRoutes);
+app.use('/api/content', contentRoutes);
 
 app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
 
@@ -43,7 +52,11 @@ app.use((err: unknown, _req: express.Request, res: express.Response, _next: expr
   res.status(500).json({ error: 'Internal server error' });
 });
 
-setupSearchIndex().catch(console.error);
+setupSearchIndex()
+  .then(() => reindexAllListings())
+  .catch(console.error);
+
+schedulePriceSnapshots().catch(console.error);
 
 const server = app.listen(PORT, () =>
   console.log(`Server running on port ${PORT}`)

@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { db } from '../db';
 import { cities, localities, listings } from '../db/schema';
-import { eq, and, count, avg, min, max, desc, sql } from 'drizzle-orm';
+import { eq, and, count, avg, min, max, desc, sql, lte } from 'drizzle-orm';
 import { cacheGet, cacheSet } from '../lib/redis';
 
 const router = Router();
@@ -23,6 +23,31 @@ interface ListingCard {
 function buildMeta(title: string, description: string) {
   return { title, description };
 }
+
+// GET /api/seo/top-params — returns top city/locality slug pairs by active listing count
+// Used by generateStaticParams to pre-build the highest-traffic locality pages
+router.get('/top-params', async (_req, res) => {
+  try {
+    const rows = await db
+      .select({
+        citySlug: cities.slug,
+        localitySlug: localities.slug,
+        listingCount: count(listings.id),
+      })
+      .from(listings)
+      .innerJoin(cities, eq(listings.cityId, cities.id))
+      .innerJoin(localities, eq(listings.localityId, localities.id))
+      .where(eq(listings.status, 'active'))
+      .groupBy(cities.slug, localities.slug)
+      .orderBy(desc(count(listings.id)))
+      .limit(100);
+
+    res.json(rows.map((r) => ({ city: r.citySlug, locality: r.localitySlug })));
+  } catch (err) {
+    console.error('seo top-params error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
 
 // GET /api/seo/city/:slug
 router.get('/city/:slug', async (req, res) => {
@@ -61,8 +86,8 @@ router.get('/city/:slug', async (req, res) => {
       .select({
         id: listings.id,
         title: listings.title,
-        city: listings.city,
-        locality: listings.locality,
+        city: cities.name,
+        locality: localities.name,
         price: listings.price,
         propertyType: listings.propertyType,
         roomType: listings.roomType,
@@ -70,6 +95,8 @@ router.get('/city/:slug', async (req, res) => {
         foodIncluded: listings.foodIncluded,
       })
       .from(listings)
+      .innerJoin(cities, eq(listings.cityId, cities.id))
+      .innerJoin(localities, eq(listings.localityId, localities.id))
       .where(and(eq(listings.cityId, city.id), eq(listings.status, 'active')))
       .orderBy(desc(listings.createdAt))
       .limit(12);
@@ -171,8 +198,8 @@ router.get('/locality/:citySlug/:localitySlug', async (req, res) => {
       .select({
         id: listings.id,
         title: listings.title,
-        city: listings.city,
-        locality: listings.locality,
+        city: cities.name,
+        locality: localities.name,
         price: listings.price,
         propertyType: listings.propertyType,
         roomType: listings.roomType,
@@ -180,6 +207,8 @@ router.get('/locality/:citySlug/:localitySlug', async (req, res) => {
         foodIncluded: listings.foodIncluded,
       })
       .from(listings)
+      .innerJoin(cities, eq(listings.cityId, cities.id))
+      .innerJoin(localities, eq(listings.localityId, localities.id))
       .where(and(eq(listings.localityId, locality.id), eq(listings.status, 'active')))
       .orderBy(desc(listings.createdAt))
       .limit(12);
@@ -295,8 +324,8 @@ router.get('/locality/:citySlug/:localitySlug/:type', async (req, res) => {
       .select({
         id: listings.id,
         title: listings.title,
-        city: listings.city,
-        locality: listings.locality,
+        city: cities.name,
+        locality: localities.name,
         price: listings.price,
         propertyType: listings.propertyType,
         roomType: listings.roomType,
@@ -304,6 +333,8 @@ router.get('/locality/:citySlug/:localitySlug/:type', async (req, res) => {
         foodIncluded: listings.foodIncluded,
       })
       .from(listings)
+      .innerJoin(cities, eq(listings.cityId, cities.id))
+      .innerJoin(localities, eq(listings.localityId, localities.id))
       .where(
         and(
           eq(listings.localityId, locality.id),
@@ -347,6 +378,120 @@ router.get('/locality/:citySlug/:localitySlug/:type', async (req, res) => {
     res.json(payload);
   } catch (err) {
     console.error('seo type error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+const VALID_BANDS = ['under-5000', 'under-8000', 'under-10000', 'under-15000', 'under-20000'] as const;
+type BudgetBand = (typeof VALID_BANDS)[number];
+
+// GET /api/seo/locality/:citySlug/:localitySlug/budget/:band
+router.get('/locality/:citySlug/:localitySlug/budget/:band', async (req, res) => {
+  const { citySlug, localitySlug, band } = req.params;
+
+  if (!VALID_BANDS.includes(band as BudgetBand)) {
+    res.status(404).json({ error: 'Invalid budget band' });
+    return;
+  }
+
+  const maxPrice = parseInt(band.replace('under-', ''), 10);
+  const cacheKey = `seo:budget:${citySlug}:${localitySlug}:${band}`;
+
+  try {
+    const cached = await cacheGet(cacheKey);
+    if (cached) {
+      res.json(cached);
+      return;
+    }
+
+    const [city] = await db
+      .select({ id: cities.id, name: cities.name, slug: cities.slug })
+      .from(cities)
+      .where(and(eq(cities.slug, citySlug), eq(cities.isActive, true)))
+      .limit(1);
+
+    if (!city) {
+      res.status(404).json({ error: 'City not found' });
+      return;
+    }
+
+    const [locality] = await db
+      .select({ id: localities.id, name: localities.name, slug: localities.slug })
+      .from(localities)
+      .where(and(eq(localities.cityId, city.id), eq(localities.slug, localitySlug)))
+      .limit(1);
+
+    if (!locality) {
+      res.status(404).json({ error: 'Locality not found' });
+      return;
+    }
+
+    const [stats] = await db
+      .select({
+        totalListings: count(listings.id),
+        avgPrice: avg(listings.price),
+        minPrice: min(listings.price),
+        maxPrice: max(listings.price),
+      })
+      .from(listings)
+      .where(
+        and(
+          eq(listings.localityId, locality.id),
+          eq(listings.status, 'active'),
+          lte(listings.price, maxPrice),
+        ),
+      );
+
+    const filteredListings = await db
+      .select({
+        id: listings.id,
+        title: listings.title,
+        city: cities.name,
+        locality: localities.name,
+        price: listings.price,
+        propertyType: listings.propertyType,
+        roomType: listings.roomType,
+        images: listings.images,
+        foodIncluded: listings.foodIncluded,
+      })
+      .from(listings)
+      .innerJoin(cities, eq(listings.cityId, cities.id))
+      .innerJoin(localities, eq(listings.localityId, localities.id))
+      .where(
+        and(
+          eq(listings.localityId, locality.id),
+          eq(listings.status, 'active'),
+          lte(listings.price, maxPrice),
+        ),
+      )
+      .orderBy(desc(listings.createdAt))
+      .limit(12);
+
+    const otherBands = VALID_BANDS.filter((b) => b !== band);
+
+    const payload = {
+      city,
+      locality,
+      band,
+      maxPrice,
+      stats: {
+        totalListings: Number(stats?.totalListings ?? 0),
+        avgPrice: Math.round(Number(stats?.avgPrice ?? 0)),
+        minPrice: Number(stats?.minPrice ?? 0),
+        maxPrice: Number(stats?.maxPrice ?? 0),
+      },
+      listings: filteredListings as ListingCard[],
+      otherBands,
+      meta: buildMeta(
+        `Rooms under ₹${maxPrice.toLocaleString('en-IN')} in ${locality.name}, ${city.name} | ZingBrokers`,
+        `Find affordable rooms and PG under ₹${maxPrice.toLocaleString('en-IN')}/mo in ${locality.name}, ${city.name}. ${Number(stats?.totalListings ?? 0)} listings available.`,
+      ),
+    };
+
+    await cacheSet(cacheKey, payload, SEO_CACHE_TTL);
+    res.json(payload);
+  } catch (err) {
+    console.error('seo budget band error:', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
