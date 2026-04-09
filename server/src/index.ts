@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -12,11 +13,14 @@ import searchRoutes from './routes/search';
 import favoriteRoutes from './routes/favorites';
 import imageRoutes from './routes/images';
 import adminRoutes from './routes/admin';
+import placesRoutes from './routes/places';
+import seoRoutes from './routes/seo';
 
 const app = express();
 const PORT = process.env.PORT || 4000;
 
 app.use(helmet());
+app.use(cookieParser());
 app.use(cors({
   origin: process.env.CLIENT_URL || 'http://localhost:3000',
   credentials: true,
@@ -29,6 +33,8 @@ app.use('/api/search', searchRoutes);
 app.use('/api/favorites', favoriteRoutes);
 app.use('/api/images', imageRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api', placesRoutes);
+app.use('/api/seo', seoRoutes);
 
 app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
 
