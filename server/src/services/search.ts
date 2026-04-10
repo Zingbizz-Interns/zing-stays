@@ -12,7 +12,7 @@ export const listingsIndex = searchClient.index('listings');
 
 export async function setupSearchIndex(): Promise<void> {
   await listingsIndex.updateSettings({
-    searchableAttributes: ['title', 'locality', 'city', 'description', 'amenities'],
+    searchableAttributes: ['title', 'landmark', 'locality', 'city', 'description', 'amenities'],
     filterableAttributes: [
       'city', 'locality', 'city_id', 'locality_id', 'intent',
       'room_type', 'property_type', 'food_included', 'gender_pref', 'price', 'status',

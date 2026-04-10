@@ -16,9 +16,10 @@ interface ContactButtonProps {
   city?: string;
   locality?: string;
   propertyType?: string;
+  onReveal?: () => void;
 }
 
-export default function ContactButton({ listingId, city, locality, propertyType }: ContactButtonProps) {
+export default function ContactButton({ listingId, city, locality, propertyType, onReveal }: ContactButtonProps) {
   const { isAuthenticated } = useAuth();
   const posthog = usePostHog();
   const [showModal, setShowModal] = useState(false);
@@ -36,6 +37,7 @@ export default function ContactButton({ listingId, city, locality, propertyType 
     try {
       const res = await api.post<ContactInfo>(`/listings/${listingId}/contact`, {});
       setContact(res);
+      onReveal?.();
       posthog?.capture('contact_revealed', {
         listing_id: listingId,
         city,

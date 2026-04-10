@@ -2,6 +2,7 @@
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth';
 import Button from '@/components/ui/Button';
+import { cn } from '@/lib/utils';
 
 export default function Navbar() {
   const { isAuthenticated, user, logout } = useAuth();
@@ -31,12 +32,26 @@ export default function Navbar() {
               <Button variant="ghost" size="sm" onClick={logout}>Sign Out</Button>
             </>
           ) : (
-            <Link href="/auth">
-              <Button size="sm">Sign In</Button>
+            <Link
+              href="/auth"
+              className={cn(
+                'inline-flex items-center justify-center font-sans font-medium touch-manipulation transition-all duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+                'min-h-[44px] px-4 py-2 text-sm',
+                'bg-accent text-accent-foreground rounded-md shadow-sm hover:bg-accent-secondary hover:shadow-md active:translate-y-0',
+              )}
+            >
+              Sign In
             </Link>
           )}
-          <Link href="/dashboard/listings/new">
-            <Button variant="secondary" size="sm">+ Post Room</Button>
+          <Link
+            href="/dashboard/listings/new"
+            className={cn(
+              'inline-flex items-center justify-center font-sans font-medium touch-manipulation transition-all duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+              'min-h-[44px] px-4 py-2 text-sm',
+              'bg-transparent border border-foreground text-foreground rounded-md hover:bg-muted hover:border-accent hover:text-accent',
+            )}
+          >
+            + Post Room
           </Link>
         </div>
       </nav>

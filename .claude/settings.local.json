@@ -35,7 +35,10 @@
       "Bash(sqlite3:*)",
       "Bash(ls /d/Developer/zingBizz/zingbrokers/client/.env*)",
       "Bash(ls /d/Developer/zingBizz/zingbrokers/.env*)",
-      "Bash(grep -n \"const { city, locality\" /d/Developer/zingBizz/zingbrokers/client/app/\\\\[city\\\\]/\\\\[locality\\\\]/page.tsx)"
+      "Bash(grep -n \"const { city, locality\" /d/Developer/zingBizz/zingbrokers/client/app/\\\\[city\\\\]/\\\\[locality\\\\]/page.tsx)",
+      "Bash(ls -d .worktrees)",
+      "Bash(ls -d worktrees)",
+      "Bash(npm test:*)"
     ]
   }
 }

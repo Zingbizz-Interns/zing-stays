@@ -6,6 +6,7 @@ import type { OwnerListing } from '@/lib/types';
 import Button from '@/components/ui/Button';
 import SectionLabel from '@/components/ui/SectionLabel';
 import CompletenessBar from '@/components/forms/CompletenessBar';
+import { cn } from '@/lib/utils';
 
 export default function MyListingsPage() {
   const qc = useQueryClient();
@@ -29,7 +30,16 @@ export default function MyListingsPage() {
           <SectionLabel>My Rooms</SectionLabel>
           <h1 className="font-display text-3xl">Your Listings</h1>
         </div>
-        <Link href="/dashboard/listings/new"><Button>+ Add Room</Button></Link>
+        <Link
+          href="/dashboard/listings/new"
+          className={cn(
+            'inline-flex items-center justify-center font-sans font-medium touch-manipulation transition-all duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+            'min-h-[44px] px-6 py-3 text-base',
+            'bg-accent text-accent-foreground rounded-md shadow-sm hover:bg-accent-secondary hover:shadow-md active:translate-y-0',
+          )}
+        >
+          + Add Room
+        </Link>
       </div>
       {isPending ? (
         <div className="animate-pulse h-48 bg-muted rounded-lg" />
@@ -38,7 +48,16 @@ export default function MyListingsPage() {
           {listings.length === 0 && (
             <div className="text-center py-16 border border-dashed border-border rounded-lg">
               <p className="font-display text-xl mb-4">No listings yet</p>
-              <Link href="/dashboard/listings/new"><Button>Post Your First Room</Button></Link>
+              <Link
+                href="/dashboard/listings/new"
+                className={cn(
+                  'inline-flex items-center justify-center font-sans font-medium touch-manipulation transition-all duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+                  'min-h-[44px] px-6 py-3 text-base',
+                  'bg-accent text-accent-foreground rounded-md shadow-sm hover:bg-accent-secondary hover:shadow-md active:translate-y-0',
+                )}
+              >
+                Post Your First Room
+              </Link>
             </div>
           )}
           {listings.map((l) => (
@@ -52,8 +71,15 @@ export default function MyListingsPage() {
                 <CompletenessBar score={l.completenessScore} />
               </div>
               <div className="flex gap-3 items-start">
-                <Link href={`/dashboard/listings/${l.id}/edit`}>
-                  <Button variant="secondary" size="sm">Edit</Button>
+                <Link
+                  href={`/dashboard/listings/${l.id}/edit`}
+                  className={cn(
+                    'inline-flex items-center justify-center font-sans font-medium touch-manipulation transition-all duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+                    'min-h-[44px] px-4 py-2 text-sm',
+                    'bg-transparent border border-foreground text-foreground rounded-md hover:bg-muted hover:border-accent hover:text-accent',
+                  )}
+                >
+                  Edit
                 </Link>
                 <Button
                   variant="ghost"

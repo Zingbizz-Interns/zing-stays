@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import SearchBar from '@/components/search/SearchBar';
 import SectionLabel from '@/components/ui/SectionLabel';
-import Button from '@/components/ui/Button';
+import { cn } from '@/lib/utils';
 
 const AMENITIES = ['WiFi Included', 'Meals Provided', 'AC Room', 'Attached Bath', 'Laundry', 'CCTV Security'];
 const HOW_IT_WORKS = [
@@ -95,8 +95,15 @@ export default function HomePage() {
           <p className="font-sans text-lg text-muted-foreground mb-10 max-w-lg mx-auto">
             Post your PG, hostel, or room for free. Reach thousands of students looking for their next home.
           </p>
-          <Link href="/dashboard/listings/new">
-            <Button size="lg">Post a Room — It&apos;s Free</Button>
+          <Link
+            href="/dashboard/listings/new"
+            className={cn(
+              'inline-flex items-center justify-center font-sans font-medium touch-manipulation transition-all duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+              'min-h-[52px] px-8 py-4 text-lg',
+              'bg-accent text-accent-foreground rounded-md shadow-sm hover:bg-accent-secondary hover:shadow-md active:translate-y-0',
+            )}
+          >
+            Post a Room — It&apos;s Free
           </Link>
         </div>
       </section>
