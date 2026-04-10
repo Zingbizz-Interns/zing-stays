@@ -8,9 +8,11 @@ export interface SearchFilters {
   city?: string;
   locality?: string;
   cityId?: string;
-  localityId?: string;
+  localityId?: string | string[];
   intent?: 'buy' | 'rent';
+  roomType?: string | string[];
   room_type?: string;
+  propertyType?: string;
   property_type?: string;
   food_included?: string;
   gender?: string;
@@ -21,7 +23,12 @@ export interface SearchFilters {
 export function useSearch(filters: SearchFilters) {
   const params = new URLSearchParams();
   Object.entries(filters).forEach(([k, v]) => {
-    if (v) params.set(k, v);
+    if (v === undefined || v === null) return;
+    if (Array.isArray(v)) {
+      v.forEach(item => params.append(k, item));
+    } else if (v) {
+      params.set(k, v);
+    }
   });
 
   return useQuery({

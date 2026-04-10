@@ -23,7 +23,7 @@
 | 1 | Security & Review Fixes | `COMPLETED` | Highest priority — do first |
 | 2 | Schema Cleanup & Foundation | `COMPLETED` | Depends on Phase 1 |
 | 3 | Authentication Redesign | `COMPLETED` | Depends on Phase 2 |
-| 4 | Guided Search Widget | `NOT_STARTED` | Depends on Phase 3 |
+| 4 | Guided Search Widget | `COMPLETED` | Depends on Phase 3 |
 | 5 | Filter Panel Redesign | `NOT_STARTED` | Depends on Phase 4 |
 | 6 | Listing Card Redesign | `NOT_STARTED` | Depends on Phase 5 |
 | 7 | EMI Calculator Visibility | `NOT_STARTED` | Independent, can run parallel to Phase 6 |
@@ -78,18 +78,18 @@
 
 | Subtask | Status | Notes |
 |---------|--------|-------|
-| 4.1 Backend: `GET /api/places/nearby?localityId=` endpoint | `NOT_STARTED` | Returns nearby localities by shared city or explicit relation |
-| 4.2 Backend: Update search to accept multiple locality IDs | `NOT_STARTED` | `localityIds[]` param in `search.ts` |
-| 4.3 Backend: Add BHK room type to search filters | `NOT_STARTED` | `roomType` filter now includes 1bhk, 2bhk, etc. |
-| 4.4 Frontend: `GuidedSearchWidget` component | `NOT_STARTED` | Replaces `SearchBar`; lives in `components/search/` |
-| 4.5 Frontend: Intent tabs (Buy / Rent) in widget | `NOT_STARTED` | Controls which sub-filters appear |
-| 4.6 Frontend: City selector dropdown | `NOT_STARTED` | Loads from `/api/places/cities` |
-| 4.7 Frontend: Locality typeahead with chip display (max 3) | `NOT_STARTED` | Client-side filter from loaded city localities |
-| 4.8 Frontend: Nearby locality chips (after first locality selected) | `NOT_STARTED` | Fetches from nearby endpoint |
-| 4.9 Frontend: Contextual sub-filter chips (BHK for Buy/Apt, Occupancy for PG/Hostel) | `NOT_STARTED` | Rules: Buy → no PG/Hostel; Apt/Flat → BHK chips |
-| 4.10 Frontend: Widget submits all state to URL, navigates to listings | `NOT_STARTED` | Multi-locality, intent, subfilter all in URL |
-| 4.11 Frontend: Integrate widget into homepage `page.tsx` | `NOT_STARTED` | Replace old `<SearchBar />` |
-| 4.12 Backend: Normalize Buy intent to Apartment/Flat only in search API | `NOT_STARTED` | Product rule, not just UI — normalize invalid propertyType values server-side in `searchFilters.ts` |
+| 4.1 Backend: `GET /api/places/nearby?localityId=` endpoint | `COMPLETED` | Returns nearby localities by shared city or explicit relation |
+| 4.2 Backend: Update search to accept multiple locality IDs | `COMPLETED` | `localityId[]` multi-value param in `search.ts` |
+| 4.3 Backend: Add BHK room type to search filters | `COMPLETED` | `roomType` array supported in searchFilters.ts |
+| 4.4 Frontend: `GuidedSearchWidget` component | `COMPLETED` | Replaces `SearchBar`; lives in `components/search/` |
+| 4.5 Frontend: Intent tabs (Buy / Rent) in widget | `COMPLETED` | Controls which sub-filters appear |
+| 4.6 Frontend: City selector dropdown | `COMPLETED` | Loads from `/api/cities` |
+| 4.7 Frontend: Locality typeahead with chip display (max 3) | `COMPLETED` | Client-side filter from loaded city localities |
+| 4.8 Frontend: Nearby locality chips (after first locality selected) | `COMPLETED` | Fetches from /api/places/nearby |
+| 4.9 Frontend: Contextual sub-filter chips (BHK for Buy/Apt, Occupancy for PG/Hostel) | `COMPLETED` | Rules: Buy → no PG/Hostel; Apt/Flat → BHK chips |
+| 4.10 Frontend: Widget submits all state to URL, navigates to listings | `COMPLETED` | Multi-locality, intent, subfilter all in URL |
+| 4.11 Frontend: Integrate widget into homepage `page.tsx` | `COMPLETED` | Replaced old `<SearchBar />` |
+| 4.12 Backend: Normalize Buy intent to Apartment/Flat only in search API | `COMPLETED` | Enforced in buildSearchFilters; pg/hostel silently stripped |
 
 ---
 
@@ -145,3 +145,4 @@
 | 2026-04-10 | 1 | 1.1–1.4 | claude-sonnet-4-6 | All Phase 1 subtasks complete |
 | 2026-04-10 | 2 | 2.1–2.7 | claude-sonnet-4-6 | All Phase 2 subtasks complete |
 | 2026-04-10 | 3 | 3.1–3.12 | claude-sonnet-4-6 | All Phase 3 subtasks complete |
+| 2026-04-10 | 4 | 4.1–4.12 | claude-sonnet-4-6 | All Phase 4 subtasks complete |

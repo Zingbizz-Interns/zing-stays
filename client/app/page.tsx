@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import SearchBar from '@/components/search/SearchBar';
+import GuidedSearchWidget from '@/components/search/GuidedSearchWidget';
 import SectionLabel from '@/components/ui/SectionLabel';
 import { buttonClassName } from '@/components/ui/Button';
 
@@ -41,7 +41,7 @@ export default function HomePage() {
             Verified PGs, hostels, and shared accommodations with transparent pricing and direct owner contact.
           </p>
           <div className="flex justify-center mb-8">
-            <SearchBar />
+            <GuidedSearchWidget />
           </div>
           <div className="flex items-center justify-center gap-6 flex-wrap">
             <span className="font-mono text-xs text-muted-foreground uppercase tracking-[0.1em]">Popular:</span>

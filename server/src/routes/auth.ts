@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-import { Router } from 'express';
-=======
 import { Router, type Request, type Response, type NextFunction } from 'express';
->>>>>>> 5d1920d130ade9d1db7b407805e80425601798c3
 import { z } from 'zod';
 import bcrypt from 'bcrypt';
 import passport from 'passport';
@@ -17,10 +13,6 @@ import { otpSendLimiter, otpVerifyLimiter } from '../middleware/rateLimit';
 import { logger } from '../lib/logger';
 
 const router = Router();
-<<<<<<< HEAD
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL?.trim().toLowerCase();
-=======
->>>>>>> 5d1920d130ade9d1db7b407805e80425601798c3
 
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL?.trim().toLowerCase();
 if (!ADMIN_EMAIL) throw new Error('ADMIN_EMAIL environment variable is required');
@@ -47,6 +39,7 @@ const loginSchema = z.object({
   password: z.string().min(1),
 });
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const otpEmailSchema = z.object({ email: emailValueSchema });
 
 const verifyOtpSchema = z.object({
@@ -64,9 +57,6 @@ const profileSchema = z
     { message: 'At least one field is required' },
   );
 
-<<<<<<< HEAD
-
-=======
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
 function setAuthCookie(res: Response, userId: number, email: string, isAdmin: boolean): void {
@@ -80,7 +70,15 @@ function setAuthCookie(res: Response, userId: number, email: string, isAdmin: bo
   });
 }
 
-function userPayload(user: { id: number; email: string; name: string | null; phone: string | null; emailVerified: boolean; isPosterVerified: boolean; isAdmin: boolean }) {
+function userPayload(user: {
+  id: number;
+  email: string;
+  name: string | null;
+  phone: string | null;
+  emailVerified: boolean;
+  isPosterVerified: boolean;
+  isAdmin: boolean;
+}) {
   return {
     id: user.id,
     email: user.email,
@@ -102,7 +100,12 @@ if (GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET) {
         clientSecret: GOOGLE_CLIENT_SECRET,
         callbackURL: GOOGLE_CALLBACK_URL,
       },
-      async (_accessToken: string, _refreshToken: string, profile: Profile, done: (err: unknown, user?: Express.User | false) => void) => {
+      async (
+        _accessToken: string,
+        _refreshToken: string,
+        profile: Profile,
+        done: (err: unknown, user?: Express.User | false) => void,
+      ) => {
         try {
           const email = profile.emails?.[0]?.value;
           if (!email) { done(new Error('No email from Google')); return; }
@@ -110,22 +113,14 @@ if (GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET) {
           const googleId = profile.id;
           const name = profile.displayName ?? null;
 
-          // Upsert: attach googleId to existing account or create new one
           let [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
           if (user) {
             if (user.googleId !== googleId) {
-              [user] = await db
-                .update(users)
-                .set({ googleId })
-                .where(eq(users.id, user.id))
-                .returning();
+              [user] = await db.update(users).set({ googleId }).where(eq(users.id, user.id)).returning();
             }
           } else {
             const isAdmin = email.toLowerCase() === ADMIN_EMAIL;
-            [user] = await db
-              .insert(users)
-              .values({ email, googleId, name, isAdmin })
-              .returning();
+            [user] = await db.insert(users).values({ email, googleId, name, isAdmin }).returning();
           }
 
           done(null, { userId: user.id, email: user.email, isAdmin: user.isAdmin } as Express.User);
@@ -141,7 +136,6 @@ if (GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET) {
 
   router.use(passport.initialize());
 }
->>>>>>> 5d1920d130ade9d1db7b407805e80425601798c3
 
 // ─── Routes ────────────────────────────────────────────────────────────────────
 
@@ -152,8 +146,6 @@ router.post('/register', async (req, res) => {
     res.status(400).json({ error: result.error.issues[0]?.message ?? 'Invalid request' });
     return;
   }
-<<<<<<< HEAD
-=======
 
   const { name, email, password } = result.data;
   try {
@@ -173,7 +165,7 @@ router.post('/register', async (req, res) => {
     setAuthCookie(res, user.id, user.email, user.isAdmin);
     res.status(201).json({ user: userPayload(user) });
   } catch (err) {
-    console.error('register error:', err);
+    logger.error('register error', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -187,7 +179,6 @@ router.post('/login', async (req, res) => {
   }
 
   const { email, password } = result.data;
->>>>>>> 5d1920d130ade9d1db7b407805e80425601798c3
   try {
     const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
     if (!user || !user.passwordHash) {
@@ -204,7 +195,7 @@ router.post('/login', async (req, res) => {
     setAuthCookie(res, user.id, user.email, user.isAdmin);
     res.json({ user: userPayload(user) });
   } catch (err) {
-    console.error('login error:', err);
+    logger.error('login error', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -226,7 +217,10 @@ router.get(
       res.status(503).json({ error: 'Google OAuth not configured' });
       return;
     }
-    passport.authenticate('google', { session: false, failureRedirect: `${FRONTEND_URL}/auth/login?error=oauth` })(req, res, next);
+    passport.authenticate('google', {
+      session: false,
+      failureRedirect: `${FRONTEND_URL}/auth/login?error=oauth`,
+    })(req, res, next);
   },
   (req: Request, res: Response) => {
     const u = req.user as Express.User | undefined;
