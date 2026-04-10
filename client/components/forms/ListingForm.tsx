@@ -1,9 +1,16 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm, Controller, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { listingSchema, type ListingInput } from '@/lib/schemas/listing';
+import { useQuery } from '@tanstack/react-query';
+import {
+  bhkRoomTypes,
+  listingSchema,
+  occupancyRoomTypes,
+  type ListingFormValues,
+  type ListingInput,
+} from '@/lib/schemas/listing';
 import { api } from '@/lib/api';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
@@ -16,21 +23,22 @@ interface LocalityOption { id: number; name: string; slug: string; }
 
 const AMENITY_OPTIONS = ['wifi', 'ac', 'laundry', 'parking', 'cctv', 'gym', 'kitchen', 'geyser', 'furnished', 'balcony'];
 
-const PG_HOSTEL_ROOM_TYPES = [
-  { value: 'single', label: 'Single' },
-  { value: 'double', label: 'Double Sharing' },
-  { value: 'multiple', label: 'Multiple Sharing' },
-] as const;
+const PG_HOSTEL_ROOM_TYPES = occupancyRoomTypes.map((value) => ({
+  value,
+  label: value === 'multiple' ? 'Multiple Sharing' : value === 'double' ? 'Double Sharing' : 'Single',
+}));
 
-const APARTMENT_ROOM_TYPES = [
-  { value: '1bhk', label: '1 BHK' },
-  { value: '2bhk', label: '2 BHK' },
-  { value: '3bhk', label: '3 BHK' },
-  { value: '4bhk', label: '4 BHK' },
-] as const;
+const APARTMENT_ROOM_TYPES = bhkRoomTypes.map((value) => ({
+  value,
+  label: value.toUpperCase(),
+}));
 
-function calcLocalScore(data: Partial<ListingInput>): number {
+function calcLocalScore(data: Partial<ListingFormValues>): number {
   let s = 0;
+  const description = typeof data.description === 'string' ? data.description : '';
+  const amenities = Array.isArray(data.amenities) ? data.amenities : [];
+  const landmark = typeof data.landmark === 'string' ? data.landmark : '';
+  const rules = typeof data.rules === 'string' ? data.rules : '';
   if (data.cityId) s += 10;
   if (data.localityId) s += 10;
   if (data.price) s += 5;
@@ -40,16 +48,16 @@ function calcLocalScore(data: Partial<ListingInput>): number {
   if (imgs >= 1) s += 10;
   if (imgs >= 3) s += 10;
   if (imgs >= 6) s += 5;
-  if (data.description && data.description.length >= 50) s += 10;
-  if (data.description && data.description.length >= 150) s += 5;
-  const am = data.amenities?.length ?? 0;
+  if (description.length >= 50) s += 10;
+  if (description.length >= 150) s += 5;
+  const am = amenities.length;
   if (am >= 1) s += 5;
   if (am >= 3) s += 5;
   if (am >= 5) s += 10;
   if (data.foodIncluded !== undefined) s += 3;
   if (data.genderPref) s += 3;
-  if (data.rules) s += 2;
-  if (data.landmark) s += 2;
+  if (rules) s += 2;
+  if (landmark) s += 2;
   return Math.min(100, s);
 }
 
@@ -60,52 +68,92 @@ interface ListingFormProps {
 
 export default function ListingForm({ initialData, listingId }: ListingFormProps) {
   const router = useRouter();
-  const [cityOptions, setCityOptions] = useState<CityOption[]>([]);
-  const [localityOptions, setLocalityOptions] = useState<LocalityOption[]>([]);
   const [serverError, setServerError] = useState<string | null>(null);
+  const defaultValues = useMemo<Partial<ListingFormValues>>(() => {
+    const normalizedInitialData: Partial<ListingFormValues> = {
+      ...initialData,
+      availableFrom:
+        typeof initialData?.availableFrom === 'string'
+          ? initialData.availableFrom.slice(0, 10)
+          : undefined,
+    };
+
+    return {
+      title: '',
+      cityId: undefined,
+      localityId: undefined,
+      intent: 'rent',
+      price: undefined,
+      roomType: undefined,
+      propertyType: undefined,
+      deposit: undefined,
+      areaSqft: undefined,
+      availableFrom: undefined,
+      furnishing: undefined,
+      preferredTenants: 'any',
+      description: undefined,
+      landmark: undefined,
+      address: undefined,
+      foodIncluded: false,
+      genderPref: 'any',
+      amenities: [],
+      rules: undefined,
+      images: [],
+      ...normalizedInitialData,
+    };
+  }, [initialData]);
 
   const {
     register,
     control,
     handleSubmit,
-    watch,
+    reset,
+    resetField,
     setValue,
     formState: { errors, isSubmitting },
-  } = useForm<ListingInput>({
+  } = useForm<ListingFormValues, unknown, ListingInput>({
     resolver: zodResolver(listingSchema),
-    defaultValues: {
-      amenities: [],
-      images: [],
-      foodIncluded: false,
-      genderPref: 'any',
-      intent: 'rent',
-      preferredTenants: 'any',
-      ...initialData,
-    },
+    defaultValues,
   });
 
-  const cityId = watch('cityId');
-  const propertyType = watch('propertyType');
-  const images = watch('images');
-  const formValues = watch();
+  const cityId = useWatch({ control, name: 'cityId' });
+  const propertyType = useWatch({ control, name: 'propertyType' });
+  const formValues = useWatch({ control });
   const score = calcLocalScore(formValues);
 
-  const roomTypeOptions = (propertyType === 'pg' || propertyType === 'hostel')
-    ? PG_HOSTEL_ROOM_TYPES
-    : (propertyType === 'apartment' || propertyType === 'flat')
-      ? APARTMENT_ROOM_TYPES
-      : [];
+  const roomTypeOptions = useMemo(() => (
+    propertyType === 'pg' || propertyType === 'hostel'
+      ? PG_HOSTEL_ROOM_TYPES
+      : propertyType === 'apartment' || propertyType === 'flat'
+        ? APARTMENT_ROOM_TYPES
+        : []
+  ), [propertyType]);
+
+  const { data: cityOptions = [] } = useQuery({
+    queryKey: ['cities'],
+    queryFn: () => api.get<{ data: CityOption[] }>('/cities').then((res) => res.data),
+  });
+
+  const { data: localityOptions = [] } = useQuery({
+    queryKey: ['localities', cityId],
+    queryFn: () => api.get<{ data: LocalityOption[] }>(`/localities?cityId=${cityId}`).then((res) => res.data),
+    enabled: !!cityId,
+  });
 
   useEffect(() => {
-    api.get<{ data: CityOption[] }>('/cities').then(res => setCityOptions(res.data)).catch(() => {});
-  }, []);
+    reset(defaultValues);
+  }, [defaultValues, reset]);
 
   useEffect(() => {
-    if (!cityId) { setLocalityOptions([]); return; }
-    api.get<{ data: LocalityOption[] }>(`/localities?cityId=${cityId}`)
-      .then(res => setLocalityOptions(res.data))
-      .catch(() => {});
-  }, [cityId]);
+    if (!propertyType) {
+      return;
+    }
+
+    const allowedRoomTypes = roomTypeOptions.map((option) => option.value);
+    if (formValues.roomType && !allowedRoomTypes.includes(formValues.roomType)) {
+      resetField('roomType');
+    }
+  }, [formValues.roomType, propertyType, resetField, roomTypeOptions]);
 
   const onSubmit = async (data: ListingInput) => {
     setServerError(null);
@@ -147,10 +195,10 @@ export default function ListingForm({ initialData, listingId }: ListingFormProps
                 render={({ field }) => (
                   <select
                     className="h-12 w-full px-4 bg-transparent border border-input rounded-md font-sans text-base focus:outline-none focus:ring-2 focus:ring-ring"
-                    value={field.value ?? ''}
+                    value={typeof field.value === 'number' ? field.value : ''}
                     onChange={e => {
                       field.onChange(e.target.value ? parseInt(e.target.value, 10) : undefined);
-                      setValue('localityId', 0);
+                      setValue('localityId', undefined);
                     }}
                   >
                     <option value="">{cityOptions.length > 0 ? 'Select city...' : 'Loading cities...'}</option>
@@ -172,7 +220,7 @@ export default function ListingForm({ initialData, listingId }: ListingFormProps
                 render={({ field }) => (
                   <select
                     className="h-12 w-full px-4 bg-transparent border border-input rounded-md font-sans text-base focus:outline-none focus:ring-2 focus:ring-ring"
-                    value={field.value ?? ''}
+                    value={typeof field.value === 'number' ? field.value : ''}
                     onChange={e => field.onChange(e.target.value ? parseInt(e.target.value, 10) : undefined)}
                     disabled={!cityId || localityOptions.length === 0}
                   >
@@ -213,7 +261,7 @@ export default function ListingForm({ initialData, listingId }: ListingFormProps
             <label className="font-mono text-xs uppercase tracking-[0.1em] text-muted-foreground mb-2 block">
               Monthly Rent (₹) *
             </label>
-            <Input type="number" placeholder="8000" {...register('price', { valueAsNumber: true })} />
+            <Input type="number" placeholder="8000" {...register('price')} />
             {errors.price && <p className="font-sans text-xs text-red-600 mt-1">{errors.price.message}</p>}
           </div>
 
@@ -257,13 +305,15 @@ export default function ListingForm({ initialData, listingId }: ListingFormProps
               <label className="font-mono text-xs uppercase tracking-[0.1em] text-muted-foreground mb-2 block">
                 Deposit (₹, optional)
               </label>
-              <Input type="number" placeholder="e.g. 20000" {...register('deposit', { valueAsNumber: true })} />
+              <Input type="number" placeholder="e.g. 20000" {...register('deposit')} />
+              {errors.deposit && <p className="font-sans text-xs text-red-600 mt-1">{errors.deposit.message}</p>}
             </div>
             <div>
               <label className="font-mono text-xs uppercase tracking-[0.1em] text-muted-foreground mb-2 block">
                 Area (sq ft, optional)
               </label>
-              <Input type="number" placeholder="e.g. 350" {...register('areaSqft', { valueAsNumber: true })} />
+              <Input type="number" placeholder="e.g. 350" {...register('areaSqft')} />
+              {errors.areaSqft && <p className="font-sans text-xs text-red-600 mt-1">{errors.areaSqft.message}</p>}
             </div>
           </div>
 
@@ -273,6 +323,7 @@ export default function ListingForm({ initialData, listingId }: ListingFormProps
                 Available From (optional)
               </label>
               <Input type="date" {...register('availableFrom')} />
+              {errors.availableFrom && <p className="font-sans text-xs text-red-600 mt-1">{errors.availableFrom.message}</p>}
             </div>
             <div>
               <label className="font-mono text-xs uppercase tracking-[0.1em] text-muted-foreground mb-2 block">
@@ -287,6 +338,7 @@ export default function ListingForm({ initialData, listingId }: ListingFormProps
                 <option value="semi">Semi-furnished</option>
                 <option value="unfurnished">Unfurnished</option>
               </select>
+              {errors.furnishing && <p className="font-sans text-xs text-red-600 mt-1">{errors.furnishing.message}</p>}
             </div>
           </div>
 
@@ -303,6 +355,7 @@ export default function ListingForm({ initialData, listingId }: ListingFormProps
               <option value="working">Working Professionals</option>
               <option value="family">Family</option>
             </select>
+            {errors.preferredTenants && <p className="font-sans text-xs text-red-600 mt-1">{errors.preferredTenants.message}</p>}
           </div>
         </div>
       </section>
@@ -313,7 +366,7 @@ export default function ListingForm({ initialData, listingId }: ListingFormProps
           name="images"
           control={control}
           render={({ field }) => (
-            <ImageUploader images={field.value} onChange={field.onChange} />
+            <ImageUploader images={field.value ?? []} onChange={field.onChange} />
           )}
         />
       </section>
@@ -347,12 +400,12 @@ export default function ListingForm({ initialData, listingId }: ListingFormProps
                     <label key={a} className="flex items-center gap-2 cursor-pointer">
                       <input
                         type="checkbox"
-                        checked={field.value.includes(a)}
+                        checked={(field.value ?? []).includes(a)}
                         onChange={e =>
                           field.onChange(
                             e.target.checked
-                              ? [...field.value, a]
-                              : field.value.filter(x => x !== a)
+                              ? [...(field.value ?? []), a]
+                              : (field.value ?? []).filter(x => x !== a)
                           )
                         }
                         className="accent-accent w-4 h-4"

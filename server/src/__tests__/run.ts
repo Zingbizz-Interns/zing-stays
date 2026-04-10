@@ -12,11 +12,14 @@ const { runAuthTests } = require('./auth.test');
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { runCompletenessTests } = require('./completeness.test');
 // eslint-disable-next-line @typescript-eslint/no-var-requires
+const { runListingFieldTests } = require('./listingFields.test');
+// eslint-disable-next-line @typescript-eslint/no-var-requires
 const { runSearchFilterTests } = require('./searchFilters.test');
 
 const tests: TestCase[] = [
   { name: 'auth helpers', run: runAuthTests },
   { name: 'listing completeness', run: runCompletenessTests },
+  { name: 'listing field rules', run: runListingFieldTests },
   { name: 'search filter helpers', run: runSearchFilterTests },
 ];
 

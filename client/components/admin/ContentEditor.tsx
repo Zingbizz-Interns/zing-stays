@@ -2,12 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm, Controller, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { contentSchema, type ContentFormValues } from '@/lib/schemas/content';
+import { contentSchema, type ContentFormInput, type ContentFormValues } from '@/lib/schemas/content';
 import Button from '@/components/ui/Button';
+import Input from '@/components/ui/Input';
 
 const CONTENT_TYPES = [
   { value: 'area_guide', label: 'Area Guide' },
@@ -65,11 +66,10 @@ export default function ContentEditor({ mode, pageId }: ContentEditorProps) {
     register,
     control,
     handleSubmit,
-    watch,
     setValue,
     reset,
     formState: { errors, isSubmitting },
-  } = useForm<ContentFormValues>({
+  } = useForm<ContentFormInput, unknown, ContentFormValues>({
     resolver: zodResolver(contentSchema),
     defaultValues: {
       title: '',
@@ -96,9 +96,9 @@ export default function ContentEditor({ mode, pageId }: ContentEditorProps) {
     }
   }, [existing, reset]);
 
-  const cityId = watch('cityId');
-  const titleValue = watch('title');
-  const bodyValue = watch('body');
+  const cityId = useWatch({ control, name: 'cityId' });
+  const titleValue = useWatch({ control, name: 'title' }) ?? '';
+  const bodyValue = useWatch({ control, name: 'body' }) ?? '';
 
   const { data: localitiesData } = useQuery({
     queryKey: ['localities', cityId],
@@ -125,10 +125,10 @@ export default function ContentEditor({ mode, pageId }: ContentEditorProps) {
       <div className="flex items-center justify-between mb-8">
         <h1 className="font-display text-3xl">{mode === 'create' ? 'New Page' : 'Edit Page'}</h1>
         <div className="flex gap-3">
-          <Button onClick={() => setShowPreview((p) => !p)}>
+          <Button type="button" onClick={() => setShowPreview((p) => !p)}>
             {showPreview ? 'Editor' : 'Preview'}
           </Button>
-          <Button onClick={() => router.push('/admin/content')}>Cancel</Button>
+          <Button type="button" onClick={() => router.push('/admin/content')}>Cancel</Button>
         </div>
       </div>
 
@@ -138,7 +138,7 @@ export default function ContentEditor({ mode, pageId }: ContentEditorProps) {
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Title</label>
-            <input
+            <Input
               type="text"
               {...register('title', {
                 onChange: (e) => {
@@ -150,17 +150,16 @@ export default function ContentEditor({ mode, pageId }: ContentEditorProps) {
                   }
                 },
               })}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
             />
             {errors.title && <p className="mt-1 text-xs text-red-600">{errors.title.message}</p>}
           </div>
 
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Slug</label>
-            <input
+            <Input
               type="text"
               {...register('slug')}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 font-mono text-sm focus:border-blue-500 focus:outline-none"
+              className="font-mono text-sm"
             />
             {errors.slug && <p className="mt-1 text-xs text-red-600">{errors.slug.message}</p>}
           </div>

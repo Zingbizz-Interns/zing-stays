@@ -50,3 +50,5 @@ export function Chip({ label, active = false, onRemove, onClick, disabled = fals
     </button>
   );
 }
+
+export default Chip;

@@ -4,6 +4,8 @@ dist/
 .env.local
 .next/
 drizzle/
+!server/drizzle/
+!server/drizzle/**
 *.tsbuildinfo
 server/drizzle.config.js
 *.agent/

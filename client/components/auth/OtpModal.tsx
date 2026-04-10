@@ -1,8 +1,10 @@
 'use client';
 import { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { useAuth } from '@/lib/auth';
 import { api } from '@/lib/api';
-import { emailSchema, otpSchema } from '@/lib/schemas/auth';
+import { emailSchema, otpSchema, type EmailInput, type OtpInput } from '@/lib/schemas/auth';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
 
@@ -15,21 +17,32 @@ export default function OtpModal({ onSuccess, onClose }: OtpModalProps) {
   const { login } = useAuth();
   const [step, setStep] = useState<'email' | 'otp'>('email');
   const [email, setEmail] = useState('');
-  const [code, setCode] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const {
+    register: registerEmail,
+    handleSubmit: handleEmailSubmit,
+    formState: { errors: emailErrors },
+  } = useForm<EmailInput>({
+    resolver: zodResolver(emailSchema),
+    defaultValues: { email: '' },
+  });
+  const {
+    register: registerOtp,
+    handleSubmit: handleOtpSubmit,
+    reset: resetOtp,
+    formState: { errors: otpErrors },
+  } = useForm<OtpInput>({
+    resolver: zodResolver(otpSchema),
+    defaultValues: { code: '' },
+  });
 
-  const handleSendOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSendOtp = async ({ email }: EmailInput) => {
     setError('');
-    const result = emailSchema.safeParse({ email });
-    if (!result.success) {
-      setError(result.error.issues[0].message);
-      return;
-    }
     setLoading(true);
     try {
-      await api.post('/auth/send-otp', { email: result.data.email });
+      await api.post('/auth/send-otp', { email });
+      setEmail(email);
       setStep('otp');
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to send OTP');
@@ -38,14 +51,8 @@ export default function OtpModal({ onSuccess, onClose }: OtpModalProps) {
     }
   };
 
-  const handleVerifyOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleVerifyOtp = async ({ code }: OtpInput) => {
     setError('');
-    const result = otpSchema.safeParse({ code });
-    if (!result.success) {
-      setError(result.error.issues[0].message);
-      return;
-    }
     setLoading(true);
     try {
       const res = await api.post<{ user: Parameters<typeof login>[0] }>(
@@ -81,7 +88,7 @@ export default function OtpModal({ onSuccess, onClose }: OtpModalProps) {
         </div>
 
         {step === 'email' ? (
-          <form onSubmit={handleSendOtp} className="space-y-4">
+          <form onSubmit={handleEmailSubmit(handleSendOtp)} className="space-y-4">
             <div>
               <label className="font-mono text-xs uppercase tracking-[0.1em] text-muted-foreground mb-2 block">
                 Email Address
@@ -89,18 +96,18 @@ export default function OtpModal({ onSuccess, onClose }: OtpModalProps) {
               <Input
                 type="email"
                 placeholder="you@example.com"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
+                {...registerEmail('email')}
                 autoFocus
               />
             </div>
+            {emailErrors.email && <p className="font-sans text-sm text-red-600">{emailErrors.email.message}</p>}
             {error && <p className="font-sans text-sm text-red-600">{error}</p>}
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? 'Sending...' : 'Send OTP'}
             </Button>
           </form>
         ) : (
-          <form onSubmit={handleVerifyOtp} className="space-y-4">
+          <form onSubmit={handleOtpSubmit(handleVerifyOtp)} className="space-y-4">
             <div>
               <label className="font-mono text-xs uppercase tracking-[0.1em] text-muted-foreground mb-2 block">
                 6-Digit Code
@@ -110,12 +117,15 @@ export default function OtpModal({ onSuccess, onClose }: OtpModalProps) {
                 inputMode="numeric"
                 maxLength={6}
                 placeholder="123456"
-                value={code}
-                onChange={e => setCode(e.target.value.replace(/\D/g, ''))}
+                {...registerOtp('code', {
+                  setValueAs: (value) =>
+                    typeof value === 'string' ? value.replace(/\D/g, '') : value,
+                })}
                 autoFocus
                 className="text-center text-2xl tracking-[0.5em]"
               />
             </div>
+            {otpErrors.code && <p className="font-sans text-sm text-red-600">{otpErrors.code.message}</p>}
             {error && <p className="font-sans text-sm text-red-600">{error}</p>}
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? 'Verifying...' : 'Verify & Continue'}
@@ -127,7 +137,7 @@ export default function OtpModal({ onSuccess, onClose }: OtpModalProps) {
               className="w-full"
               onClick={() => {
                 setStep('email');
-                setCode('');
+                resetOtp();
                 setError('');
               }}
             >

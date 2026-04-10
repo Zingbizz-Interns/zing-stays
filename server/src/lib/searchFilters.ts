@@ -1,3 +1,10 @@
+import {
+  type GenderPref,
+  type ListingIntent,
+  type PropertyType,
+  type RoomType,
+} from './listingFields';
+
 export const VALID_SORT_FIELDS = [
   'completeness_score:desc',
   'completeness_score:asc',
@@ -12,11 +19,11 @@ export interface SearchFilterInput {
   locality?: string;
   cityId?: number;
   localityId?: number;
-  intent?: 'buy' | 'rent';
-  roomType?: 'single' | 'double' | 'multiple' | '1bhk' | '2bhk' | '3bhk' | '4bhk';
-  propertyType?: 'pg' | 'hostel' | 'apartment' | 'flat';
+  intent?: ListingIntent;
+  roomType?: RoomType;
+  propertyType?: PropertyType;
   foodIncluded?: 'true' | 'false';
-  gender?: 'male' | 'female' | 'any';
+  gender?: GenderPref;
   priceMin?: number;
   priceMax?: number;
 }

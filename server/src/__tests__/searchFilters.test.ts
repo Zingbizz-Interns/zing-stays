@@ -10,12 +10,14 @@ export function runSearchFilterTests(): void {
   const filters = buildSearchFilters({
     city: 'Pune',
     gender: 'female',
+    roomType: '2bhk',
     priceMax: 15000,
   });
 
   assert.deepEqual(filters, [
     'status = "active"',
     'city = "Pune"',
+    'room_type = "2bhk"',
     '(gender_pref = "female" OR gender_pref = "any")',
     'price <= 15000',
   ]);

@@ -3,6 +3,7 @@ import { db } from '../db';
 import { listings, localities, priceSnapshots } from '../db/schema';
 import { eq, and, sql, desc } from 'drizzle-orm';
 import { cacheGet, cacheSet } from '../lib/redis';
+import { roomTypeValues } from '../lib/listingFields';
 
 const router = Router();
 
@@ -62,9 +63,12 @@ router.get('/rent-estimate/:localityId', async (req, res) => {
       };
     }
 
-    const singlePrices = rows.filter((r) => r.roomType === 'single').map((r) => r.price);
-    const doublePrices = rows.filter((r) => r.roomType === 'double').map((r) => r.price);
-    const multiplePrices = rows.filter((r) => r.roomType === 'multiple').map((r) => r.price);
+    const byRoomType = Object.fromEntries(
+      roomTypeValues.map((roomType) => [
+        roomType,
+        computeStats(rows.filter((r) => r.roomType === roomType).map((r) => r.price)),
+      ]),
+    ) as Record<(typeof roomTypeValues)[number], ReturnType<typeof computeStats>>;
 
     const sampleSize = allPrices.length;
     const confidence: 'high' | 'medium' | 'low' =
@@ -76,7 +80,7 @@ router.get('/rent-estimate/:localityId', async (req, res) => {
         localityId,
         localityName: locality.name,
         overall: null,
-        byRoomType: { single: null, double: null, multiple: null },
+        byRoomType,
         confidence: 'low',
       });
       return;
@@ -86,11 +90,7 @@ router.get('/rent-estimate/:localityId', async (req, res) => {
       localityId,
       localityName: locality.name,
       overall: { median: overall.median, min: overall.min, max: overall.max, sampleSize },
-      byRoomType: {
-        single: computeStats(singlePrices),
-        double: computeStats(doublePrices),
-        multiple: computeStats(multiplePrices),
-      },
+      byRoomType,
       confidence,
     };
 

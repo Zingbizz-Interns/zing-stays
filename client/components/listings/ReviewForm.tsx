@@ -2,10 +2,11 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm, Controller, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { usePostHog } from 'posthog-js/react';
 import { reviewSchema, type ReviewFormValues } from '@/lib/schemas/review';
+import Button from '@/components/ui/Button';
 
 interface ReviewFormProps {
   listingId: number;
@@ -63,14 +64,13 @@ export default function ReviewForm({
     control,
     register,
     handleSubmit,
-    watch,
     formState: { errors, isSubmitting },
   } = useForm<ReviewFormValues>({
     resolver: zodResolver(reviewSchema),
     defaultValues: { rating: 0, body: '' },
   });
 
-  const bodyValue = watch('body');
+  const bodyValue = useWatch({ control, name: 'body' }) ?? '';
 
   const onSubmit = async (data: ReviewFormValues) => {
     setServerError(null);
@@ -88,7 +88,8 @@ export default function ReviewForm({
         return;
       }
       if (res.status === 403) {
-        setServerError('You must contact the owner before reviewing.');
+        const json = await res.json().catch(() => ({ error: 'You must contact the owner before reviewing.' })) as { error?: string };
+        setServerError(json.error ?? 'You must contact the owner before reviewing.');
         return;
       }
       if (res.status === 202) {
@@ -198,13 +199,13 @@ export default function ReviewForm({
         <p className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600">{serverError}</p>
       )}
 
-      <button
+      <Button
         type="submit"
         disabled={isSubmitting}
-        className="w-full rounded-lg bg-blue-600 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
+        className="w-full"
       >
         {isSubmitting ? 'Submitting…' : 'Submit Review'}
-      </button>
+      </Button>
     </form>
   );
 }

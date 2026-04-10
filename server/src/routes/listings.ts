@@ -7,26 +7,78 @@ import { contactRevealLimiter } from '../middleware/rateLimit';
 import { calculateCompleteness, getTrustBadges } from '../services/completeness';
 import { searchIndexQueue } from '../lib/queues';
 import { cacheGet, cacheSet, cacheInvalidate, cacheInvalidateByPrefix } from '../lib/redis';
+import {
+  furnishingValues,
+  genderValues,
+  intentValues,
+  isRoomTypeAllowedForPropertyType,
+  preferredTenantValues,
+  propertyTypeValues,
+  roomTypeValues,
+} from '../lib/listingFields';
 import { z } from 'zod';
 
 const router = Router();
+
+const optionalNumberField = z.preprocess((value) => {
+  if (value === '' || value === null || value === undefined) {
+    return undefined;
+  }
+
+  return value;
+}, z.coerce.number().int().min(0).optional());
+
+const optionalDateField = z.preprocess((value) => {
+  if (value === '' || value === null || value === undefined) {
+    return undefined;
+  }
+
+  if (value instanceof Date) {
+    return value;
+  }
+
+  if (typeof value === 'string' || typeof value === 'number') {
+    const parsed = new Date(value);
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed;
+    }
+  }
+
+  return value;
+}, z.date().optional());
 
 const listingInputSchema = z.object({
   title: z.string().min(5).max(200),
   cityId: z.number().int().positive().optional(),
   localityId: z.number().int().positive().optional(),
-  intent: z.enum(['buy', 'rent']).optional().default('rent'),
+  intent: z.enum(intentValues).optional().default('rent'),
   price: z.number().int().min(500).max(500000),
-  roomType: z.enum(['single', 'double', 'multiple', '1bhk', '2bhk', '3bhk', '4bhk']),
-  propertyType: z.enum(['pg', 'hostel', 'apartment', 'flat']),
+  roomType: z.enum(roomTypeValues),
+  propertyType: z.enum(propertyTypeValues),
+  deposit: optionalNumberField,
+  areaSqft: optionalNumberField,
+  availableFrom: optionalDateField,
+  furnishing: z.enum(furnishingValues).optional(),
+  preferredTenants: z.enum(preferredTenantValues).optional().default('any'),
   description: z.string().max(2000).optional(),
   landmark: z.string().max(200).optional(),
   address: z.string().optional(),
   foodIncluded: z.boolean().optional().default(false),
-  genderPref: z.enum(['male', 'female', 'any']).optional().default('any'),
+  genderPref: z.enum(genderValues).optional().default('any'),
   amenities: z.array(z.string()).optional().default([]),
   rules: z.string().optional(),
   images: z.array(z.string().url()).optional().default([]),
+}).superRefine((value, ctx) => {
+  if (!isRoomTypeAllowedForPropertyType(value.roomType, value.propertyType)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['roomType'],
+      message:
+        value.propertyType === 'pg' || value.propertyType === 'hostel'
+          ? 'PG/Hostel listings must use Single, Double, or Multiple room types.'
+          : 'Apartment/Flat listings must use BHK room types.',
+    });
+  }
 });
 
 const createListingSchema = listingInputSchema.superRefine((value, ctx) => {
@@ -51,11 +103,11 @@ const updateListingSchema = listingInputSchema.partial();
 const listingsQuerySchema = z.object({
   cityId: z.coerce.number().int().positive().optional(),
   localityId: z.coerce.number().int().positive().optional(),
-  intent: z.enum(['buy', 'rent']).optional(),
-  room_type: z.enum(['single', 'double', 'multiple', '1bhk', '2bhk', '3bhk', '4bhk']).optional(),
-  property_type: z.enum(['pg', 'hostel', 'apartment', 'flat']).optional(),
+  intent: z.enum(intentValues).optional(),
+  room_type: z.enum(roomTypeValues).optional(),
+  property_type: z.enum(propertyTypeValues).optional(),
   food_included: z.enum(['true', 'false']).optional(),
-  gender: z.enum(['male', 'female', 'any']).optional(),
+  gender: z.enum(genderValues).optional(),
   price_min: z.coerce.number().int().positive().optional(),
   price_max: z.coerce.number().int().positive().optional(),
   page: z.coerce.number().int().positive().default(1),
@@ -190,6 +242,20 @@ function withDisplayLocation<T extends { city: string | null; locality: string |
     city: listing.city ?? '',
     locality: listing.locality ?? '',
   };
+}
+
+function isListingInputError(error: unknown): error is Error {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  return [
+    'Selected city does not exist',
+    'Selected locality does not exist',
+    'Selected locality does not belong to the selected city',
+    'cityId is required',
+    'localityId is required',
+  ].includes(error.message);
 }
 
 // GET /api/listings — public list with filters
@@ -353,6 +419,11 @@ router.post('/', requireAuth, async (req: AuthRequest, res) => {
       price: data.price,
       roomType: data.roomType,
       propertyType: data.propertyType,
+      deposit: data.deposit,
+      areaSqft: data.areaSqft,
+      availableFrom: data.availableFrom,
+      furnishing: data.furnishing,
+      preferredTenants: data.preferredTenants,
       description: data.description,
       landmark: data.landmark,
       address: data.address,
@@ -372,6 +443,10 @@ router.post('/', requireAuth, async (req: AuthRequest, res) => {
     await invalidateListingCaches(listing.id);
     res.status(201).json(created ?? listing);
   } catch (err) {
+    if (isListingInputError(err)) {
+      res.status(400).json({ error: err.message });
+      return;
+    }
     console.error('create listing error:', err);
     res.status(500).json({ error: 'Failed to create listing' });
   }
@@ -400,6 +475,11 @@ router.put('/:id', requireAuth, async (req: AuthRequest, res) => {
       cityId: resolvedLocation.cityId,
       localityId: resolvedLocation.localityId,
     };
+    const mergedValidation = listingInputSchema.safeParse(merged);
+    if (!mergedValidation.success) {
+      res.status(400).json({ error: mergedValidation.error.issues[0].message });
+      return;
+    }
     const completenessScore = calculateCompleteness(merged as Parameters<typeof calculateCompleteness>[0]);
     const [updated] = await db
       .update(listings)
@@ -421,6 +501,10 @@ router.put('/:id', requireAuth, async (req: AuthRequest, res) => {
     await invalidateListingCaches(updated.id);
     res.json(hydrated ?? updated);
   } catch (err) {
+    if (isListingInputError(err)) {
+      res.status(400).json({ error: err.message });
+      return;
+    }
     console.error('update listing error:', err);
     res.status(500).json({ error: 'Failed to update listing' });
   }

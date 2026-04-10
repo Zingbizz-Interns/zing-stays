@@ -1,48 +1,91 @@
 import { z } from 'zod';
 
-const pgHostelRoomTypes = ['single', 'double', 'multiple'] as const;
-const apartmentRoomTypes = ['1bhk', '2bhk', '3bhk', '4bhk'] as const;
+export const occupancyRoomTypes = ['single', 'double', 'multiple'] as const;
+export const bhkRoomTypes = ['1bhk', '2bhk', '3bhk', '4bhk'] as const;
+export const roomTypeValues = [...occupancyRoomTypes, ...bhkRoomTypes] as const;
+export const propertyTypeValues = ['pg', 'hostel', 'apartment', 'flat'] as const;
+export const furnishingValues = ['furnished', 'semi', 'unfurnished'] as const;
+export const preferredTenantValues = ['students', 'working', 'family', 'any'] as const;
+
+const optionalTrimmedString = z.preprocess((value) => {
+  if (typeof value !== 'string') {
+    return value;
+  }
+
+  const trimmed = value.trim();
+  return trimmed === '' ? undefined : trimmed;
+}, z.string().optional());
+
+const optionalNonNegativeNumber = z.preprocess((value) => {
+  if (value === '' || value === null || value === undefined) {
+    return undefined;
+  }
+
+  if (typeof value === 'number' && Number.isNaN(value)) {
+    return undefined;
+  }
+
+  return value;
+}, z.coerce.number().int().min(0).optional());
+
+const optionalDateString = z.preprocess((value) => {
+  if (typeof value !== 'string') {
+    return value;
+  }
+
+  const trimmed = value.trim();
+  return trimmed === '' ? undefined : trimmed;
+}, z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Enter a valid date').optional());
+
+function isRoomTypeAllowedForPropertyType(
+  roomType: (typeof roomTypeValues)[number],
+  propertyType: (typeof propertyTypeValues)[number],
+): boolean {
+  if (propertyType === 'pg' || propertyType === 'hostel') {
+    return occupancyRoomTypes.includes(roomType as (typeof occupancyRoomTypes)[number]);
+  }
+
+  return bhkRoomTypes.includes(roomType as (typeof bhkRoomTypes)[number]);
+}
 
 export const listingSchema = z.object({
-  title: z.string().min(5, 'Title must be at least 5 characters').max(200),
-  cityId: z.number().int().positive('Select a city'),
-  localityId: z.number().int().positive('Select a locality'),
+  title: z.string().trim().min(5, 'Title must be at least 5 characters').max(200),
+  cityId: z.coerce.number().int().positive('Select a city'),
+  localityId: z.coerce.number().int().positive('Select a locality'),
   intent: z.enum(['buy', 'rent']).default('rent'),
   price: z.coerce.number().int().min(500, 'Minimum ₹500/month').max(500000),
-  roomType: z.enum([...pgHostelRoomTypes, ...apartmentRoomTypes]),
-  propertyType: z.enum(['pg', 'hostel', 'apartment', 'flat']),
-  deposit: z.coerce.number().int().min(0).optional(),
-  areaSqft: z.coerce.number().int().min(0).optional(),
-  availableFrom: z.string().optional(),
-  furnishing: z.enum(['furnished', 'semi', 'unfurnished']).optional(),
-  preferredTenants: z.enum(['students', 'working', 'family', 'any']).default('any'),
-  description: z.string().max(2000).optional(),
-  landmark: z.string().max(200).optional(),
-  address: z.string().optional(),
+  roomType: z.enum(roomTypeValues),
+  propertyType: z.enum(propertyTypeValues),
+  deposit: optionalNonNegativeNumber,
+  areaSqft: optionalNonNegativeNumber,
+  availableFrom: optionalDateString,
+  furnishing: z.enum(furnishingValues).optional(),
+  preferredTenants: z.enum(preferredTenantValues).default('any'),
+  description: optionalTrimmedString.pipe(z.string().max(2000).optional()),
+  landmark: optionalTrimmedString.pipe(z.string().max(200).optional()),
+  address: optionalTrimmedString,
   foodIncluded: z.boolean().default(false),
   genderPref: z.enum(['male', 'female', 'any']).default('any'),
   amenities: z.array(z.string()).default([]),
-  rules: z.string().optional(),
+  rules: optionalTrimmedString,
   images: z.array(z.string()).default([]),
 }).superRefine((data, ctx) => {
-  const isPgOrHostel = data.propertyType === 'pg' || data.propertyType === 'hostel';
-  const isApartment = data.propertyType === 'apartment' || data.propertyType === 'flat';
-
-  if (isPgOrHostel && !pgHostelRoomTypes.includes(data.roomType as typeof pgHostelRoomTypes[number])) {
+  if (!isRoomTypeAllowedForPropertyType(data.roomType, data.propertyType)) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       path: ['roomType'],
-      message: 'PG/Hostel listings must use Single, Double, or Multiple room types.',
+      message:
+        data.propertyType === 'pg' || data.propertyType === 'hostel'
+          ? 'PG/Hostel listings must use Single, Double, or Multiple room types.'
+          : 'Apartment/Flat listings must use BHK room types.',
     });
   }
+}).transform((data) => ({
+  ...data,
+  availableFrom: data.availableFrom
+    ? new Date(`${data.availableFrom}T00:00:00.000Z`).toISOString()
+    : undefined,
+}));
 
-  if (isApartment && !apartmentRoomTypes.includes(data.roomType as typeof apartmentRoomTypes[number])) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ['roomType'],
-      message: 'Apartment/Flat listings must use BHK room types.',
-    });
-  }
-});
-
-export type ListingInput = z.infer<typeof listingSchema>;
+export type ListingFormValues = z.input<typeof listingSchema>;
+export type ListingInput = z.output<typeof listingSchema>;

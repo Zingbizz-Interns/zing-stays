@@ -2,12 +2,19 @@
 import { useRouter, useSearchParams } from 'next/navigation';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
+import { roomTypeValues } from '@/lib/schemas/listing';
 
 const ROOM_TYPES = [
   { value: '', label: 'All Types' },
-  { value: 'single', label: 'Single' },
-  { value: 'double', label: 'Double' },
-  { value: 'shared', label: 'Shared' },
+  ...roomTypeValues.map((value) => ({
+    value,
+    label:
+      value === 'multiple'
+        ? 'Multiple'
+        : value.endsWith('bhk')
+          ? value.toUpperCase()
+          : value[0]!.toUpperCase() + value.slice(1),
+  })),
 ];
 
 const PROPERTY_TYPES = [

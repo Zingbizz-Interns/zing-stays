@@ -1,6 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
+import { roomTypeValues } from '@/lib/schemas/listing';
 
 interface RoomStats {
   median: number;
@@ -13,11 +14,7 @@ interface RentEstimate {
   localityId: number;
   localityName: string;
   overall: { median: number; min: number; max: number; sampleSize: number } | null;
-  byRoomType: {
-    single: RoomStats | null;
-    double: RoomStats | null;
-    shared: RoomStats | null;
-  };
+  byRoomType: Partial<Record<(typeof roomTypeValues)[number], RoomStats | null>>;
   confidence: 'high' | 'medium' | 'low';
 }
 
@@ -72,11 +69,17 @@ export default function RentEstimator({ localityId, apiBase = '/api' }: RentEsti
 
   const { overall, byRoomType, confidence, localityName } = data;
 
-  const roomTypes: { key: keyof typeof byRoomType; label: string }[] = [
-    { key: 'single', label: 'Single' },
-    { key: 'double', label: 'Double' },
-    { key: 'shared', label: 'Shared' },
-  ];
+  const roomTypes = roomTypeValues
+    .map((key) => ({
+      key,
+      label:
+        key === 'multiple'
+          ? 'Multiple'
+          : key.endsWith('bhk')
+            ? key.toUpperCase()
+            : key[0]!.toUpperCase() + key.slice(1),
+    }))
+    .filter(({ key }) => byRoomType[key]);
 
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">

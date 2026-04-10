@@ -10,4 +10,5 @@ export const contentSchema = z.object({
   localityId: z.number().int().positive().nullable().default(null),
 });
 
-export type ContentFormValues = z.infer<typeof contentSchema>;
+export type ContentFormInput = z.input<typeof contentSchema>;
+export type ContentFormValues = z.output<typeof contentSchema>;
