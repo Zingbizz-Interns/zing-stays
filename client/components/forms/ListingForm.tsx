@@ -12,11 +12,13 @@ import {
   type ListingInput,
 } from '@/lib/schemas/listing';
 import { api } from '@/lib/api';
+import { useAuth } from '@/lib/auth';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
 import SectionLabel from '@/components/ui/SectionLabel';
 import ImageUploader from './ImageUploader';
 import CompletenessBar from './CompletenessBar';
+import PosterVerificationModal from '@/components/auth/PosterVerificationModal';
 
 interface CityOption { id: number; name: string; slug: string; }
 interface LocalityOption { id: number; name: string; slug: string; }
@@ -66,9 +68,14 @@ interface ListingFormProps {
   listingId?: number;
 }
 
-export default function ListingForm({ initialData, listingId }: ListingFormProps) {
+export default function ListingForm({ initialData, listingId: listingIdProp }: ListingFormProps) {
   const router = useRouter();
+  const { user } = useAuth();
   const [serverError, setServerError] = useState<string | null>(null);
+  const [savedDraftId, setSavedDraftId] = useState<number | null>(null);
+  const [showVerifyModal, setShowVerifyModal] = useState(false);
+  const [publishing, setPublishing] = useState(false);
+  const listingId = listingIdProp ?? savedDraftId ?? undefined;
   const defaultValues = useMemo<Partial<ListingFormValues>>(() => {
     const normalizedInitialData: Partial<ListingFormValues> = {
       ...initialData,
@@ -160,18 +167,67 @@ export default function ListingForm({ initialData, listingId }: ListingFormProps
     try {
       if (listingId) {
         await api.put(`/listings/${listingId}`, data);
+        router.push('/dashboard/listings');
       } else {
-        await api.post('/listings', data);
+        const created = await api.post<{ id: number }>('/listings', data);
+        setSavedDraftId(created.id);
       }
-      router.push('/dashboard/listings');
     } catch (err: unknown) {
       setServerError(err instanceof Error ? err.message : 'Something went wrong');
     }
   };
 
+  const handlePublish = async () => {
+    if (!listingId) return;
+    if (!user?.isPosterVerified) {
+      setShowVerifyModal(true);
+      return;
+    }
+    setPublishing(true);
+    try {
+      await api.patch(`/listings/${listingId}/status`, { status: 'active' });
+      router.push('/dashboard/listings');
+    } catch (err: unknown) {
+      setServerError(err instanceof Error ? err.message : 'Failed to publish listing');
+    } finally {
+      setPublishing(false);
+    }
+  };
+
   return (
+    <>
+    {showVerifyModal && (
+      <PosterVerificationModal
+        onSuccess={() => {
+          setShowVerifyModal(false);
+          handlePublish();
+        }}
+        onClose={() => setShowVerifyModal(false)}
+      />
+    )}
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-12 max-w-2xl">
       <CompletenessBar score={score} />
+
+      {!user?.isPosterVerified && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 flex items-start gap-3">
+          <span className="text-amber-500 mt-0.5 shrink-0">&#9888;</span>
+          <div>
+            <p className="font-sans text-sm font-medium text-amber-800">Complete verification to publish</p>
+            <p className="font-sans text-xs text-amber-700 mt-0.5">
+              Your listing will be saved as a draft. Verify your email and phone to make it live.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {savedDraftId && (
+        <div className="bg-emerald-50 border border-emerald-200 rounded-lg px-4 py-3">
+          <p className="font-sans text-sm font-medium text-emerald-800">Draft saved successfully.</p>
+          <p className="font-sans text-xs text-emerald-700 mt-0.5">
+            Use the Publish button below to make your listing live.
+          </p>
+        </div>
+      )}
 
       <section>
         <SectionLabel>Basic Details</SectionLabel>
@@ -466,12 +522,23 @@ export default function ListingForm({ initialData, listingId }: ListingFormProps
       {serverError && <p className="font-sans text-sm text-red-600">{serverError}</p>}
       <div className="flex gap-4 pt-4 border-t border-border">
         <Button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? 'Saving...' : listingId ? 'Save Changes' : 'Publish Listing'}
+          {isSubmitting ? 'Saving...' : listingIdProp ? 'Save Changes' : 'Save Draft'}
         </Button>
-        <Button type="button" variant="secondary" onClick={() => router.back()}>
+        {(savedDraftId || listingIdProp) && (
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={handlePublish}
+            disabled={publishing}
+          >
+            {publishing ? 'Publishing...' : user?.isPosterVerified ? 'Publish Listing' : 'Publish (Verify First)'}
+          </Button>
+        )}
+        <Button type="button" variant="ghost" onClick={() => router.back()}>
           Cancel
         </Button>
       </div>
     </form>
+    </>
   );
 }

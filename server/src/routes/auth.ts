@@ -1,5 +1,8 @@
-import { Router, type Request } from 'express';
+import { Router, type Request, type Response, type NextFunction } from 'express';
 import { z } from 'zod';
+import bcrypt from 'bcrypt';
+import passport from 'passport';
+import { Strategy as GoogleStrategy, type Profile } from 'passport-google-oauth20';
 import { db } from '../db';
 import { users } from '../db/schema';
 import { eq } from 'drizzle-orm';
@@ -9,23 +12,35 @@ import { requireAuth, AuthRequest } from '../middleware/auth';
 import { otpSendLimiter, otpVerifyLimiter } from '../middleware/rateLimit';
 
 const router = Router();
-const OTP_IP_LIMIT_WINDOW_MS = 15 * 60 * 1000;
-const OTP_IP_LIMIT_MAX_REQUESTS = 5;
-const otpRequestLog = new Map<string, number[]>();
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL?.trim().toLowerCase();
 
-if (!ADMIN_EMAIL) {
-  throw new Error('ADMIN_EMAIL environment variable is required');
-}
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL?.trim().toLowerCase();
+if (!ADMIN_EMAIL) throw new Error('ADMIN_EMAIL environment variable is required');
+
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
+const GOOGLE_CALLBACK_URL = process.env.GOOGLE_CALLBACK_URL ?? '/api/auth/google/callback';
+const FRONTEND_URL = process.env.FRONTEND_URL ?? 'http://localhost:3000';
+const BCRYPT_ROUNDS = 12;
+
+// ─── Validation schemas ────────────────────────────────────────────────────────
 
 const indianPhoneSchema = z.string().regex(/^\+91[6-9]\d{9}$/, 'Invalid Indian phone number');
 const emailValueSchema = z.string().trim().toLowerCase().email('Invalid email address');
 
-const emailSchema = z.object({
+const registerSchema = z.object({
+  name: z.string().trim().min(1).max(100),
   email: emailValueSchema,
+  password: z.string().min(8, 'Password must be at least 8 characters'),
 });
 
-const verifySchema = z.object({
+const loginSchema = z.object({
+  email: emailValueSchema,
+  password: z.string().min(1),
+});
+
+const otpEmailSchema = z.object({ email: emailValueSchema });
+
+const verifyOtpSchema = z.object({
   email: emailValueSchema,
   code: z.string().length(6),
 });
@@ -40,44 +55,182 @@ const profileSchema = z
     { message: 'At least one field is required' },
   );
 
-function getClientIp(req: Request): string {
-  const forwarded = req.headers['x-forwarded-for'];
-  if (typeof forwarded === 'string' && forwarded.length > 0) {
-    return forwarded.split(',')[0]!.trim();
-  }
+// ─── Helpers ───────────────────────────────────────────────────────────────────
 
-  return req.ip || req.socket.remoteAddress || 'unknown';
+function setAuthCookie(res: Response, userId: number, email: string, isAdmin: boolean): void {
+  const token = signToken({ userId, email, isAdmin });
+  res.cookie('auth_token', token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+    path: '/',
+  });
 }
 
-function isOtpRateLimited(ip: string): boolean {
-  const now = Date.now();
-  const recentRequests = (otpRequestLog.get(ip) ?? []).filter(
-    (timestamp) => timestamp > now - OTP_IP_LIMIT_WINDOW_MS,
+function userPayload(user: { id: number; email: string; name: string | null; phone: string | null; emailVerified: boolean; isPosterVerified: boolean; isAdmin: boolean }) {
+  return {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    phone: user.phone,
+    emailVerified: user.emailVerified,
+    isPosterVerified: user.isPosterVerified,
+    isAdmin: user.isAdmin,
+  };
+}
+
+// ─── Google OAuth setup ────────────────────────────────────────────────────────
+
+if (GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET) {
+  passport.use(
+    new GoogleStrategy(
+      {
+        clientID: GOOGLE_CLIENT_ID,
+        clientSecret: GOOGLE_CLIENT_SECRET,
+        callbackURL: GOOGLE_CALLBACK_URL,
+      },
+      async (_accessToken: string, _refreshToken: string, profile: Profile, done: (err: unknown, user?: Express.User | false) => void) => {
+        try {
+          const email = profile.emails?.[0]?.value;
+          if (!email) { done(new Error('No email from Google')); return; }
+
+          const googleId = profile.id;
+          const name = profile.displayName ?? null;
+
+          // Upsert: attach googleId to existing account or create new one
+          let [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
+          if (user) {
+            if (user.googleId !== googleId) {
+              [user] = await db
+                .update(users)
+                .set({ googleId })
+                .where(eq(users.id, user.id))
+                .returning();
+            }
+          } else {
+            const isAdmin = email.toLowerCase() === ADMIN_EMAIL;
+            [user] = await db
+              .insert(users)
+              .values({ email, googleId, name, isAdmin })
+              .returning();
+          }
+
+          done(null, { userId: user.id, email: user.email, isAdmin: user.isAdmin } as Express.User);
+        } catch (err) {
+          done(err);
+        }
+      },
+    ),
   );
 
-  if (recentRequests.length >= OTP_IP_LIMIT_MAX_REQUESTS) {
-    otpRequestLog.set(ip, recentRequests);
-    return true;
-  }
+  passport.serializeUser((user, done) => done(null, user));
+  passport.deserializeUser((user, done) => done(null, user as Express.User));
 
-  recentRequests.push(now);
-  otpRequestLog.set(ip, recentRequests);
-  return false;
+  router.use(passport.initialize());
 }
 
-// POST /api/auth/send-otp
-router.post('/send-otp', otpSendLimiter, async (req, res) => {
-  const result = emailSchema.safeParse(req.body);
+// ─── Routes ────────────────────────────────────────────────────────────────────
+
+// POST /api/auth/register
+router.post('/register', async (req, res) => {
+  const result = registerSchema.safeParse(req.body);
   if (!result.success) {
     res.status(400).json({ error: result.error.issues[0]?.message ?? 'Invalid request' });
     return;
   }
-  if (isOtpRateLimited(getClientIp(req))) {
-    res.status(429).json({ error: 'Too many OTP requests. Please try again later.' });
+
+  const { name, email, password } = result.data;
+  try {
+    const [existing] = await db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1);
+    if (existing) {
+      res.status(409).json({ error: 'Email already registered.' });
+      return;
+    }
+
+    const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
+    const isAdmin = email === ADMIN_EMAIL;
+    const [user] = await db
+      .insert(users)
+      .values({ email, passwordHash, name, isAdmin, emailVerified: false, isPosterVerified: false })
+      .returning();
+
+    setAuthCookie(res, user.id, user.email, user.isAdmin);
+    res.status(201).json({ user: userPayload(user) });
+  } catch (err) {
+    console.error('register error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// POST /api/auth/login
+router.post('/login', async (req, res) => {
+  const result = loginSchema.safeParse(req.body);
+  if (!result.success) {
+    res.status(400).json({ error: result.error.issues[0]?.message ?? 'Invalid request' });
     return;
   }
+
+  const { email, password } = result.data;
   try {
-    await sendOtp(result.data.email);
+    const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
+    if (!user || !user.passwordHash) {
+      res.status(401).json({ error: 'Invalid credentials.' });
+      return;
+    }
+
+    const match = await bcrypt.compare(password, user.passwordHash);
+    if (!match) {
+      res.status(401).json({ error: 'Invalid credentials.' });
+      return;
+    }
+
+    setAuthCookie(res, user.id, user.email, user.isAdmin);
+    res.json({ user: userPayload(user) });
+  } catch (err) {
+    console.error('login error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET /api/auth/google — redirect to Google consent screen
+router.get('/google', (req, res, next) => {
+  if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
+    res.status(503).json({ error: 'Google OAuth not configured' });
+    return;
+  }
+  passport.authenticate('google', { scope: ['profile', 'email'] })(req, res, next);
+});
+
+// GET /api/auth/google/callback
+router.get(
+  '/google/callback',
+  (req: Request, res: Response, next: NextFunction) => {
+    if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
+      res.status(503).json({ error: 'Google OAuth not configured' });
+      return;
+    }
+    passport.authenticate('google', { session: false, failureRedirect: `${FRONTEND_URL}/auth/login?error=oauth` })(req, res, next);
+  },
+  (req: Request, res: Response) => {
+    const u = req.user as Express.User | undefined;
+    if (!u) {
+      res.redirect(`${FRONTEND_URL}/auth/login?error=oauth`);
+      return;
+    }
+    setAuthCookie(res, u.userId, u.email, u.isAdmin);
+    res.redirect(`${FRONTEND_URL}/dashboard`);
+  },
+);
+
+// POST /api/auth/send-otp — requires auth; sends OTP for email verification
+router.post('/send-otp', requireAuth, otpSendLimiter, async (req: AuthRequest, res) => {
+  try {
+    const userId = req.user!.userId;
+    const [user] = await db.select({ email: users.email }).from(users).where(eq(users.id, userId)).limit(1);
+    if (!user) { res.status(404).json({ error: 'User not found' }); return; }
+
+    await sendOtp(user.email);
     res.json({ message: 'OTP sent successfully' });
   } catch (err) {
     console.error('OTP send error:', err);
@@ -87,51 +240,35 @@ router.post('/send-otp', otpSendLimiter, async (req, res) => {
   }
 });
 
-// POST /api/auth/verify-otp
-router.post('/verify-otp', otpVerifyLimiter, async (req, res) => {
-  const result = verifySchema.safeParse(req.body);
+// POST /api/auth/verify-otp — requires auth; sets emailVerified and recalculates isPosterVerified
+router.post('/verify-otp', requireAuth, otpVerifyLimiter, async (req: AuthRequest, res) => {
+  const result = verifyOtpSchema.safeParse(req.body);
   if (!result.success) {
     res.status(400).json({ error: 'Invalid request' });
     return;
   }
 
-  const { email, code } = result.data;
+  const userId = req.user!.userId;
+  const { code } = result.data;
+
   try {
-    const valid = await verifyOtp(email, code);
+    const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+    if (!user) { res.status(404).json({ error: 'User not found' }); return; }
+
+    const valid = await verifyOtp(user.email, code);
     if (!valid) {
       res.status(401).json({ error: 'Invalid or expired OTP' });
       return;
     }
 
-    const shouldBeAdmin = email === ADMIN_EMAIL;
-    let [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
-    if (!user) {
-      [user] = await db.insert(users).values({ email, isAdmin: shouldBeAdmin }).returning();
-    } else if (user.isAdmin !== shouldBeAdmin) {
-      [user] = await db
-        .update(users)
-        .set({ isAdmin: shouldBeAdmin })
-        .where(eq(users.id, user.id))
-        .returning();
-    }
+    const isPosterVerified = !!(user.phone);
+    const [updated] = await db
+      .update(users)
+      .set({ emailVerified: true, isPosterVerified })
+      .where(eq(users.id, userId))
+      .returning();
 
-    const token = signToken({
-      userId: user.id,
-      email: user.email,
-      isAdmin: user.isAdmin,
-    });
-
-    res.cookie('auth_token', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-      path: '/',
-    });
-
-    res.json({
-      user: { id: user.id, email: user.email, phone: user.phone, name: user.name, isAdmin: user.isAdmin },
-    });
+    res.json({ user: userPayload(updated) });
   } catch (err) {
     console.error('verify-otp error:', err);
     res.status(500).json({ error: 'Internal server error' });
@@ -143,41 +280,40 @@ router.get('/me', requireAuth, async (req: AuthRequest, res) => {
   try {
     const [user] = await db.select().from(users).where(eq(users.id, req.user!.userId)).limit(1);
     if (!user) { res.status(404).json({ error: 'User not found' }); return; }
-    res.json({
-      user: { id: user.id, email: user.email, phone: user.phone, name: user.name, isAdmin: user.isAdmin },
-    });
+    res.json({ user: userPayload(user) });
   } catch (err) {
     console.error('me error:', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-// PATCH /api/auth/profile
+// PATCH /api/auth/profile — update name and/or phone; phone recalculates isPosterVerified
 router.patch('/profile', requireAuth, async (req: AuthRequest, res) => {
   const result = profileSchema.safeParse(req.body);
   if (!result.success) {
-    res.status(400).json({ error: result.error.issues[0]?.message ?? 'Invalid request' }); return;
+    res.status(400).json({ error: result.error.issues[0]?.message ?? 'Invalid request' });
+    return;
   }
 
-  const updates: Partial<typeof users.$inferInsert> = {};
-  if (result.data.name !== undefined) updates.name = result.data.name;
-  if (result.data.phone !== undefined) updates.phone = result.data.phone || null;
-
   try {
+    const [currentUser] = await db.select().from(users).where(eq(users.id, req.user!.userId)).limit(1);
+    if (!currentUser) { res.status(404).json({ error: 'User not found' }); return; }
+
+    const updates: Partial<typeof users.$inferInsert> = {};
+    if (result.data.name !== undefined) updates.name = result.data.name;
+
+    if (result.data.phone !== undefined) {
+      updates.phone = result.data.phone || null;
+      updates.isPosterVerified = currentUser.emailVerified && !!(updates.phone);
+    }
+
     const [updated] = await db
       .update(users)
       .set(updates)
       .where(eq(users.id, req.user!.userId))
       .returning();
-    res.json({
-      user: {
-        id: updated.id,
-        email: updated.email,
-        phone: updated.phone,
-        name: updated.name,
-        isAdmin: updated.isAdmin,
-      },
-    });
+
+    res.json({ user: userPayload(updated) });
   } catch (err) {
     console.error('profile update error:', err);
     res.status(500).json({ error: 'Internal server error' });
