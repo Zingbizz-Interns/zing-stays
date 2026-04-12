@@ -1,5 +1,10 @@
 import type { ListingFormValues } from '@/lib/schemas/listing';
 
+/**
+ * Listing completeness scoring weights.
+ * ⚠️  KEEP IN SYNC with server/src/services/completeness.ts
+ *     Canonical source: shared/completeness-weights.ts
+ */
 export const LISTING_COMPLETENESS_WEIGHTS = {
   city: 10,
   locality: 10,

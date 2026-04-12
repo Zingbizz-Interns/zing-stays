@@ -43,6 +43,20 @@ export function normalizeSortField(value?: string): string {
     : 'completeness_score:desc';
 }
 
+/** Build a Meilisearch OR-filter from an array of values for a single field. */
+function buildOrFilter(field: string, values: string[]): string | null {
+  if (values.length === 0) return null;
+  if (values.length === 1) return `${field} = "${values[0]}"`;
+  return `(${values.map(v => `${field} = "${v}"`).join(' OR ')})`;
+}
+
+/** Same as buildOrFilter but for numeric field values. */
+function buildOrFilterNumeric(field: string, values: number[]): string | null {
+  if (values.length === 0) return null;
+  if (values.length === 1) return `${field} = ${values[0]}`;
+  return `(${values.map(v => `${field} = ${v}`).join(' OR ')})`;
+}
+
 const BUY_ALLOWED_PROPERTY_TYPES: PropertyType[] = ['apartment', 'flat'];
 
 export function buildSearchFilters(input: SearchFilterInput): string[] {
@@ -52,87 +66,61 @@ export function buildSearchFilters(input: SearchFilterInput): string[] {
   if (input.locality) filters.push(`locality = "${escapeFilterValue(input.locality)}"`);
   if (input.cityId !== undefined) filters.push(`city_id = ${input.cityId}`);
 
-  // Multi-locality support: localityIds[] takes precedence over single localityId
+  // Multi-locality: localityIds[] takes precedence over single localityId
   if (input.localityIds && input.localityIds.length > 0) {
-    if (input.localityIds.length === 1) {
-      filters.push(`locality_id = ${input.localityIds[0]}`);
-    } else {
-      const parts = input.localityIds.map(id => `locality_id = ${id}`).join(' OR ');
-      filters.push(`(${parts})`);
-    }
+    const f = buildOrFilterNumeric('locality_id', input.localityIds);
+    if (f) filters.push(f);
   } else if (input.localityId !== undefined) {
     filters.push(`locality_id = ${input.localityId}`);
   }
 
-  if (input.intent) {
-    filters.push(`intent = "${input.intent}"`);
-  }
+  if (input.intent) filters.push(`intent = "${input.intent}"`);
 
-  // Product rule: buy intent is restricted to apartment/flat only
+  // Product rule: buy intent restricts property types to apartment/flat
   const propTypes = input.propertyType
     ? (Array.isArray(input.propertyType) ? input.propertyType : [input.propertyType])
     : [];
 
   if (input.intent === 'buy') {
     const allowed = propTypes.filter(pt => BUY_ALLOWED_PROPERTY_TYPES.includes(pt));
-    if (allowed.length === 1) {
-      filters.push(`property_type = "${allowed[0]}"`);
-    } else if (allowed.length > 1) {
-      const parts = allowed.map(pt => `property_type = "${pt}"`).join(' OR ');
-      filters.push(`(${parts})`);
-    } else {
-      filters.push('(property_type = "apartment" OR property_type = "flat")');
-    }
-  } else if (propTypes.length === 1) {
-    filters.push(`property_type = "${propTypes[0]}"`);
-  } else if (propTypes.length > 1) {
-    const parts = propTypes.map(pt => `property_type = "${pt}"`).join(' OR ');
-    filters.push(`(${parts})`);
+    const f = buildOrFilter('property_type', allowed.length > 0 ? allowed : BUY_ALLOWED_PROPERTY_TYPES);
+    if (f) filters.push(f);
+  } else {
+    const f = buildOrFilter('property_type', propTypes);
+    if (f) filters.push(f);
   }
 
-  // Room type: supports single value or array
-  if (input.roomType) {
-    const roomTypes = Array.isArray(input.roomType) ? input.roomType : [input.roomType];
-    if (roomTypes.length === 1) {
-      filters.push(`room_type = "${roomTypes[0]}"`);
-    } else if (roomTypes.length > 1) {
-      const parts = roomTypes.map(rt => `room_type = "${rt}"`).join(' OR ');
-      filters.push(`(${parts})`);
-    }
-  }
+  // Room type
+  const roomTypes = input.roomType
+    ? (Array.isArray(input.roomType) ? input.roomType : [input.roomType])
+    : [];
+  const rtFilter = buildOrFilter('room_type', roomTypes);
+  if (rtFilter) filters.push(rtFilter);
 
   if (input.foodIncluded === 'true') filters.push('food_included = true');
   if (input.gender && input.gender !== 'any') filters.push(`(gender_pref = "${input.gender}" OR gender_pref = "any")`);
   if (input.priceMin !== undefined) filters.push(`price >= ${input.priceMin}`);
   if (input.priceMax !== undefined) filters.push(`price <= ${input.priceMax}`);
 
-  // Availability filter (available_from_ts: 0 = immediately available)
+  // Availability filter
   if (input.availability === 'now') {
-    const nowTs = Math.floor(Date.now() / 1000);
-    filters.push(`available_from_ts <= ${nowTs}`);
+    filters.push(`available_from_ts <= ${Math.floor(Date.now() / 1000)}`);
   } else if (input.availability === 'soon') {
-    const soonTs = Math.floor((Date.now() + 30 * 24 * 3600 * 1000) / 1000);
-    filters.push(`available_from_ts <= ${soonTs}`);
+    filters.push(`available_from_ts <= ${Math.floor((Date.now() + 30 * 24 * 3600 * 1000) / 1000)}`);
   }
 
-  // Preferred tenants filter: include listings that accept ANY of the selected types, or "any"
+  // Preferred tenants: include listings matching ANY selected type, plus "any"
   if (input.preferredTenants && input.preferredTenants.length > 0) {
     const nonAny = input.preferredTenants.filter(t => t !== 'any');
     if (nonAny.length > 0) {
-      const parts = [...nonAny, 'any'].map(t => `preferred_tenants = "${t}"`).join(' OR ');
-      filters.push(`(${parts})`);
+      const f = buildOrFilter('preferred_tenants', [...nonAny, 'any']);
+      if (f) filters.push(f);
     }
   }
 
-  // Furnishing filter: show listings matching any selected furnishing type
-  if (input.furnishing && input.furnishing.length > 0) {
-    if (input.furnishing.length === 1) {
-      filters.push(`furnishing = "${input.furnishing[0]}"`);
-    } else {
-      const parts = input.furnishing.map(f => `furnishing = "${f}"`).join(' OR ');
-      filters.push(`(${parts})`);
-    }
-  }
+  // Furnishing
+  const furnishingFilter = buildOrFilter('furnishing', input.furnishing ?? []);
+  if (furnishingFilter) filters.push(furnishingFilter);
 
   return filters;
 }

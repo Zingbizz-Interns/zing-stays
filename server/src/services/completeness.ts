@@ -1,5 +1,10 @@
 import { Listing } from '../db/schema';
 
+/**
+ * Listing completeness scoring weights.
+ * ⚠️  KEEP IN SYNC with client/lib/listingCompleteness.ts
+ *     Canonical source: shared/completeness-weights.ts
+ */
 export const LISTING_COMPLETENESS_WEIGHTS = {
   city: 10,
   locality: 10,

@@ -66,7 +66,7 @@ export default function Navbar() {
             href="/"
             className="font-display text-xl font-semibold tracking-tight text-foreground hover:text-accent transition-colors duration-200 flex-shrink-0"
           >
-            ZindStay
+            ZingBrokers
           </Link>
 
 

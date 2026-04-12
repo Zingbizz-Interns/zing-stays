@@ -12,7 +12,7 @@ export interface RecentSearch {
   timestamp: number;
 }
 
-const STORAGE_KEY = 'zindstay_recent_searches';
+const STORAGE_KEY = 'zingbrokers_recent_searches';
 const MAX_SEARCHES = 4;
 
 export function useRecentSearches() {

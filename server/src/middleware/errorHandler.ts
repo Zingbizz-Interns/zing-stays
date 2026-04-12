@@ -1,6 +1,5 @@
 import type { Request, Response, NextFunction } from 'express';
 import { AppError } from '../lib/errors';
-import { ListingInputError } from '../lib/routeUtils';
 import { logger } from '../lib/logger';
 
 /**
@@ -16,19 +15,11 @@ export function errorHandler(
   res: Response,
   _next: NextFunction,
 ): void {
-  // Typed application errors — known status codes
   if (err instanceof AppError) {
     res.status(err.statusCode).json({ error: err.message });
     return;
   }
 
-  // Legacy ListingInputError (pre-refactor compat) → 400
-  if (err instanceof ListingInputError) {
-    res.status(400).json({ error: err.message });
-    return;
-  }
-
-  // Unexpected errors — log full details, return generic 500
   logger.error('Unhandled error', err);
   res.status(500).json({ error: 'Internal server error' });
 }

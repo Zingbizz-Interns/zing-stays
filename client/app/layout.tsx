@@ -28,7 +28,7 @@ const ibmMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'ZindStay — Find Your Perfect Room',
+  title: 'ZingBrokers — Find Your Perfect Room',
   description: 'Student and bachelor-focused rental marketplace with verified listings.',
 };
 

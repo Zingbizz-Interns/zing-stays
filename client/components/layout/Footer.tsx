@@ -28,18 +28,18 @@ export default function Footer() {
               href="/"
               className="font-display text-2xl font-semibold text-foreground hover:text-accent transition-colors duration-200"
             >
-              ZindStay
+              ZingBrokers
             </Link>
             <p className="font-sans text-sm text-muted-foreground mt-3 max-w-xs leading-relaxed">
               India&apos;s student and bachelor-focused rental marketplace. Verified listings,
               transparent pricing, direct owner contact.
             </p>
             <a
-              href="mailto:hello@zindstay.com"
+              href="mailto:hello@zingbrokers.com"
               className="inline-flex items-center gap-2 mt-4 font-sans text-sm text-muted-foreground hover:text-accent transition-colors group"
             >
               <Mail className="h-3.5 w-3.5" />
-              hello@zindstay.com
+              hello@zingbrokers.com
               <ArrowUpRight className="h-3 w-3 opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-200" />
             </a>
           </div>
@@ -86,7 +86,7 @@ export default function Footer() {
         {/* Bottom Bar */}
         <div className="mt-12 pt-6 border-t border-border flex flex-col sm:flex-row items-center justify-between gap-4">
           <p className="font-mono text-[11px] text-muted-foreground uppercase tracking-[0.1em]">
-            © {currentYear} ZindStay. All rights reserved.
+            © {currentYear} ZingBrokers. All rights reserved.
           </p>
           <p className="font-mono text-[11px] text-muted-foreground uppercase tracking-[0.1em]">
             Affordable rooms for students &amp; bachelors

@@ -52,7 +52,7 @@ export default function RegisterPage() {
             <span className="font-mono text-xs uppercase tracking-[0.15em] text-accent">Create Account</span>
             <span className="h-px flex-1 bg-border" />
           </div>
-          <h1 className="font-display text-3xl mb-2">Join ZindStay</h1>
+          <h1 className="font-display text-3xl mb-2">Join ZingBrokers</h1>
           <p className="font-sans text-muted-foreground text-sm">Create an account to list or save rooms</p>
         </div>
 

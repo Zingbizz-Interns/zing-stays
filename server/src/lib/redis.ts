@@ -1,4 +1,5 @@
 import Redis from 'ioredis';
+import { logger } from './logger';
 
 export const redis = new Redis(process.env.REDIS_URL!, {
   lazyConnect: true,
@@ -6,7 +7,7 @@ export const redis = new Redis(process.env.REDIS_URL!, {
 });
 
 redis.on('error', (err) => {
-  console.error('Redis connection error:', err.message);
+  logger.error('Redis connection error:', err.message);
 });
 
 export async function cacheGet(key: string): Promise<unknown> {

@@ -56,7 +56,7 @@ export default function LoginPage() {
             <span className="h-px flex-1 bg-border" />
           </div>
           <h1 className="font-display text-3xl mb-2">Welcome back</h1>
-          <p className="font-sans text-muted-foreground text-sm">Sign in to your ZindStay account</p>
+          <p className="font-sans text-muted-foreground text-sm">Sign in to your ZingBrokers account</p>
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">

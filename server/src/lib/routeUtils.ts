@@ -2,17 +2,6 @@ import type { Request, Response } from 'express';
 import type { AuthRequest } from '../middleware/auth';
 
 /**
- * Custom error for listing input validation failures (city/locality resolution).
- * Use `instanceof` instead of fragile string matching.
- */
-export class ListingInputError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'ListingInputError';
-  }
-}
-
-/**
  * Parse an integer route parameter. Returns the parsed number or sends
  * a 400 response and returns `null`.
  */
