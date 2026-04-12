@@ -1,5 +1,8 @@
+'use client';
+
 import Image from 'next/image';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import type { ListingCardData } from '@/lib/types';
 import Card from '@/components/ui/Card';
 import TrustBadge from '@/components/ui/TrustBadge';
@@ -43,151 +46,184 @@ function formatAvailability(availableFrom?: string | null): string | null {
   return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
+function StatCell({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="px-4 py-4 text-center">
+      <p className="font-display text-xl text-foreground">{value}</p>
+      <p className="mt-1 font-sans text-xs uppercase tracking-[0.12em] text-muted-foreground">{label}</p>
+    </div>
+  );
+}
+
+function DetailTile({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-border/80 bg-muted/40 px-4 py-3">
+      <p className="font-display text-base text-foreground">{value}</p>
+      <p className="mt-1 font-sans text-xs uppercase tracking-[0.12em] text-muted-foreground">{label}</p>
+    </div>
+  );
+}
+
 interface ListingCardProps {
   listing: ListingCardData;
 }
 
 export default function ListingCard({ listing }: ListingCardProps) {
+  const router = useRouter();
   const thumb = listing.images[0] ?? null;
   const priceSuffix = listing.intent === 'buy' ? '' : '/mo';
   const availability = formatAvailability(listing.availableFrom);
   const hasLocalityLink = listing.citySlug && listing.localitySlug;
+  const statLabel = listing.intent === 'buy' ? 'Sale Price' : 'Rent';
+  const areaLabel = listing.intent === 'buy' ? 'Builtup' : 'Area';
+  const furnishingValue = listing.furnishing ? formatFurnishing(listing.furnishing) : 'Not specified';
+  const preferredTenantsValue =
+    listing.preferredTenants && listing.preferredTenants !== 'any'
+      ? `For ${listing.preferredTenants}`
+      : 'Open to all';
+  const genderValue =
+    listing.genderPref === 'male'
+      ? 'Male only'
+      : listing.genderPref === 'female'
+        ? 'Female only'
+        : 'Any gender';
+  const navigateToListing = () => router.push(`/listings/${listing.id}`);
+
+  function stopCardClick(event: React.SyntheticEvent) {
+    event.stopPropagation();
+  }
+
+  function handleCardKeyDown(event: React.KeyboardEvent<HTMLElement>) {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      navigateToListing();
+    }
+  }
 
   return (
-    <Card hoverEffect className="relative overflow-hidden flex flex-col md:flex-row">
-      {/* Full-card link behind everything */}
-      <Link
-        href={`/listings/${listing.id}`}
-        className="absolute inset-0 z-0"
-        aria-label={listing.title}
-      />
-
-      {/* Image */}
-      <div className="relative w-full md:w-48 lg:w-64 shrink-0 aspect-[4/3] md:aspect-auto bg-muted">
-        {thumb ? (
-          <Image
-            src={thumb}
-            alt={listing.title}
-            fill
-            className="object-cover md:rounded-l-lg"
-            sizes="(max-width: 768px) 100vw, 256px"
-          />
-        ) : (
-          <div className="absolute inset-0 flex items-center justify-center text-muted-foreground font-mono text-xs uppercase tracking-wider">
-            No Photo
+    <Card
+      hoverEffect
+      className="overflow-hidden"
+      role="link"
+      tabIndex={0}
+      onClick={navigateToListing}
+      onKeyDown={handleCardKeyDown}
+      aria-label={listing.title}
+    >
+      <div className="border-b border-border px-4 py-4 sm:px-5">
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <h3 className="font-display text-xl leading-tight text-foreground sm:text-2xl">
+              {listing.title}
+            </h3>
+            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+              <p className="font-sans text-sm text-muted-foreground">
+                {listing.locality}, {listing.city}
+              </p>
+              {listing.landmark && (
+                <p className="font-sans text-sm text-muted-foreground">
+                  Near {listing.landmark}
+                </p>
+              )}
+              {hasLocalityLink && (
+                <Link
+                  href={`/${listing.citySlug}/${listing.localitySlug}`}
+                  className="text-sm text-accent underline-offset-4 hover:underline"
+                  onClick={stopCardClick}
+                >
+                  Explore Nearby
+                </Link>
+              )}
+            </div>
           </div>
-        )}
-        {/* Favorite button overlaid on image */}
-        <div className="absolute top-2 right-2 z-10">
-          <FavoriteButton
-            listingId={listing.id}
-            city={listing.city}
-            locality={listing.locality}
-            compact
+          <div className="shrink-0" onClick={stopCardClick}>
+            <FavoriteButton
+              listingId={listing.id}
+              city={listing.city}
+              locality={listing.locality}
+              compact
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 border-b border-border md:grid-cols-3 md:divide-x md:divide-border">
+        <StatCell
+          label={statLabel}
+          value={`₹${listing.price.toLocaleString('en-IN')}${priceSuffix}`}
+        />
+        <StatCell
+          label="Deposit"
+          value={
+            listing.deposit != null && listing.deposit > 0
+              ? `₹${listing.deposit.toLocaleString('en-IN')}`
+              : 'Not set'
+          }
+        />
+        <div className="col-span-2 border-t border-border md:col-span-1 md:border-t-0">
+          <StatCell
+            label={areaLabel}
+            value={listing.areaSqft ? `${listing.areaSqft.toLocaleString('en-IN')} sqft` : formatRoomType(listing.roomType)}
           />
         </div>
       </div>
 
-      {/* Details */}
-      <div className="flex-1 p-4 flex flex-col gap-1.5 relative z-10 pointer-events-none">
-        {/* Title row */}
-        <h3 className="font-display text-base leading-tight line-clamp-2 pr-2">{listing.title}</h3>
-
-        {/* Locality + explore nearby */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <p className="font-mono text-xs text-muted-foreground uppercase tracking-wide">
-            {listing.locality}, {listing.city}
-          </p>
-          {hasLocalityLink && (
-            <Link
-              href={`/${listing.citySlug}/${listing.localitySlug}`}
-              className="text-xs text-blue-600 hover:underline pointer-events-auto"
-            >
-              Explore nearby →
-            </Link>
+      <div className="grid gap-5 p-4 sm:p-5 lg:grid-cols-[minmax(0,1.1fr)_minmax(280px,0.9fr)]">
+        <div className="relative aspect-[16/11] overflow-hidden rounded-xl bg-muted">
+          {thumb ? (
+            <Image
+              src={thumb}
+              alt={listing.title}
+              fill
+              className="object-cover"
+              sizes="(max-width: 1024px) 100vw, 520px"
+            />
+          ) : (
+            <div className="absolute inset-0 flex items-center justify-center text-muted-foreground font-mono text-xs uppercase tracking-wider">
+              No Photo
+            </div>
+          )}
+          {listing.intent === 'rent' && (
+            <div className="absolute bottom-3 left-3 rounded-full bg-accent px-3 py-1 font-mono text-xs uppercase tracking-[0.12em] text-accent-foreground">
+              For Rent
+            </div>
           )}
         </div>
 
-        {/* Price + deposit */}
-        <div className="flex items-baseline gap-2 flex-wrap">
-          <span className="font-display text-lg text-accent">
-            ₹{listing.price.toLocaleString('en-IN')}
-            {priceSuffix && <span className="font-sans text-xs text-muted-foreground">{priceSuffix}</span>}
-          </span>
-          {listing.deposit != null && listing.deposit > 0 && (
-            <span className="font-sans text-xs text-muted-foreground">
-              · Deposit: ₹{listing.deposit.toLocaleString('en-IN')}
-            </span>
-          )}
-        </div>
-
-        {/* Primary tags: room type · furnishing · property type */}
-        <div className="flex flex-wrap gap-1">
-          <span className="font-mono text-xs px-2 py-0.5 bg-muted border border-border rounded uppercase tracking-wide">
-            {formatRoomType(listing.roomType)}
-          </span>
-          {listing.furnishing && (
-            <span className="font-mono text-xs px-2 py-0.5 bg-muted border border-border rounded uppercase tracking-wide">
-              {formatFurnishing(listing.furnishing)}
-            </span>
-          )}
-          <span className="font-mono text-xs px-2 py-0.5 bg-muted border border-border rounded uppercase tracking-wide">
-            {formatPropertyType(listing.propertyType)}
-          </span>
-          {listing.foodIncluded && (
-            <span className="font-mono text-xs px-2 py-0.5 bg-accent/10 border border-accent/30 text-accent rounded uppercase tracking-wide">
-              Food Incl.
-            </span>
-          )}
-        </div>
-
-        {/* Secondary info: area · preferred tenants · gender */}
-        {(listing.areaSqft || (listing.preferredTenants && listing.preferredTenants !== 'any') || (listing.genderPref && listing.genderPref !== 'any')) && (
-          <p className="font-sans text-xs text-muted-foreground">
-            {[
-              listing.areaSqft ? `${listing.areaSqft} sq ft` : null,
-              listing.preferredTenants && listing.preferredTenants !== 'any'
-                ? `For ${listing.preferredTenants}`
-                : null,
-              listing.genderPref === 'male' ? 'Male only'
-                : listing.genderPref === 'female' ? 'Female only'
-                : null,
-            ].filter(Boolean).join(' · ')}
-          </p>
-        )}
-
-        {/* Availability */}
-        {availability && (
-          <p className="font-sans text-xs text-muted-foreground">
-            Available: {availability}
-          </p>
-        )}
-
-        {/* Landmark */}
-        {listing.landmark && (
-          <p className="font-sans text-xs text-muted-foreground">
-            Near {listing.landmark}
-          </p>
-        )}
-
-        {/* Trust badges */}
-        {listing.badges.length > 0 && (
-          <div className="flex flex-wrap gap-1 pt-1 border-t border-border">
-            {listing.badges.filter(isTrustBadge).map((badge) => (
-              <TrustBadge key={badge} type={badge} />
-            ))}
+        <div className="flex min-w-0 flex-col gap-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <DetailTile label="Furnishing" value={furnishingValue} />
+            <DetailTile
+              label="Configuration"
+              value={`${formatRoomType(listing.roomType)} ${formatPropertyType(listing.propertyType)}`}
+            />
+            <DetailTile label="Preferred Tenants" value={preferredTenantsValue} />
+            <DetailTile label="Availability" value={availability ?? 'Ready to move'} />
           </div>
-        )}
 
-        {/* CTA */}
-        <div className="mt-auto pt-2 flex justify-end pointer-events-auto">
-          <ContactButton
-            listingId={listing.id}
-            ownerId={listing.ownerId}
-            city={listing.city}
-            locality={listing.locality}
-            propertyType={listing.propertyType}
-          />
+          <div className="flex flex-wrap gap-2">
+            <DetailTile label="Gender" value={genderValue} />
+            {listing.foodIncluded && <DetailTile label="Meals" value="Food included" />}
+          </div>
+
+          {listing.badges.length > 0 && (
+            <div className="flex flex-wrap gap-2 border-t border-border pt-4">
+              {listing.badges.filter(isTrustBadge).map((badge) => (
+                <TrustBadge key={badge} type={badge} />
+              ))}
+            </div>
+          )}
+
+          <div className="mt-auto" onClick={stopCardClick}>
+            <ContactButton
+              listingId={listing.id}
+              ownerId={listing.ownerId}
+              city={listing.city}
+              locality={listing.locality}
+              propertyType={listing.propertyType}
+              className="w-full justify-center"
+            />
+          </div>
         </div>
       </div>
     </Card>

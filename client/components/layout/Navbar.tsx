@@ -37,17 +37,10 @@ export default function Navbar() {
                 <span className="font-sans text-sm text-foreground leading-tight">
                   {user?.name || user?.email}
                 </span>
-                {user?.isPosterVerified ? (
+                {user?.isPosterVerified && (
                   <span className="font-mono text-xs text-emerald-600 uppercase tracking-[0.1em]">
-                    Verified Poster
+                    Verified
                   </span>
-                ) : (
-                  <Link
-                    href="/dashboard/verify"
-                    className="font-mono text-xs text-amber-600 hover:text-amber-700 uppercase tracking-[0.1em] transition-colors"
-                  >
-                    Get Verified
-                  </Link>
                 )}
               </div>
               <Button variant="ghost" size="sm" onClick={logout}>Sign Out</Button>

@@ -29,36 +29,62 @@ async function seedCitiesAndLocalities(): Promise<void> {
     {
       city: { name: 'Chennai', state: 'Tamil Nadu' },
       localities: [
-        'Anna Nagar', 'T Nagar', 'Adyar', 'Velachery', 'OMR',
-        'Porur', 'Ambattur', 'Perambur', 'Chromepet', 'Tambaram',
-        'Sholinganallur', 'Perungudi', 'Guindy', 'Nungambakkam', 'Egmore',
-        'Mylapore', 'Thiruvanmiyur', 'Kodambakkam', 'Vadapalani', 'Avadi',
+        'Adambakkam', 'Adyar', 'Alandur', 'Ambattur', 'Aminjikarai',
+        'Anna Nagar', 'Arumbakkam', 'Ashok Nagar', 'Avadi', 'Besant Nagar',
+        'Chengalpattu', 'Chetpet', 'Chromepet', 'Egmore', 'Ekkatuthangal',
+        'Guindy', 'Injambakkam', 'Iyyappanthangal', 'Karapakkam', 'Kelambakkam',
+        'Kodambakkam', 'Kolathur', 'Korattur', 'Kottivakkam', 'Koyambedu',
+        'Madipakkam', 'Mambalam', 'Medavakkam', 'Mogappair', 'Mylapore',
+        'Nandanam', 'Navalur', 'Nungambakkam', 'OMR', 'Pallavaram',
+        'Perambur', 'Perungudi', 'Poonamallee', 'Porur', 'Purasawalkam',
+        'Royapettah', 'Saidapet', 'Sholinganallur', 'Tambaram', 'T Nagar',
+        'Thirumangalam', 'Thiruvanmiyur', 'Triplicane', 'Vadapalani', 'Valasaravakkam',
+        'Velachery', 'Villivakkam', 'Virugambakkam', 'Washermanpet',
       ],
     },
     {
       city: { name: 'Coimbatore', state: 'Tamil Nadu' },
       localities: [
-        'RS Puram', 'Gandhipuram', 'Peelamedu', 'Saibaba Colony', 'Race Course',
-        'Singanallur', 'Hopes College', 'Vadavalli', 'Kuniyamuthur', 'Thudiyalur',
-        'Kovaipudur', 'Podanur', 'Ganapathy', 'Ramanathapuram', 'Selvapuram',
+        'Anaikatti', 'Avinashi Road', 'Cheran Ma Nagar', 'Eachanari', 'Ganapathy',
+        'Gandhipuram', 'Gopalapuram', 'Hopes College', 'Kalapatti', 'Kaniyur',
+        'Karumathampatti', 'Kinathukadavu', 'Kovaipudur', 'Kuniamuthur', 'Kurichi',
+        'Mettupalayam Road', 'Neelambur', 'Ondipudur', 'Peelamedu', 'Podanur',
+        'Pollachi Road', 'R S Puram', 'Race Course', 'Ramanathapuram', 'Saibaba Colony',
+        'Saravanampatti', 'Selvapuram', 'Singanallur', 'Sivananda Colony', 'Sowripalayam',
+        'Sundarapuram', 'Thadagam Road', 'Thondamuthur', 'Thudiyalur', 'Ukkadam',
+        'Vadavalli', 'Veerakeralam', 'Vilankurichi',
       ],
     },
     {
       city: { name: 'Mumbai', state: 'Maharashtra' },
       localities: [
-        'Andheri', 'Bandra', 'Powai', 'Malad', 'Goregaon',
-        'Borivali', 'Thane', 'Navi Mumbai', 'Kurla', 'Ghatkopar',
-        'Dadar', 'Worli', 'Colaba', 'Lower Parel', 'Kandivali',
-        'Mira Road', 'Vasai', 'Mulund', 'Vikhroli', 'Chembur',
+        'Airoli', 'Andheri East', 'Andheri West', 'Bandra East', 'Bandra West',
+        'Belapur', 'Bhandup', 'Bhayandar', 'Borivali East', 'Borivali West',
+        'Byculla', 'Chembur', 'Colaba', 'Dadar East', 'Dadar West',
+        'Dahisar', 'Fort', 'Ghatkopar East', 'Ghatkopar West', 'Girgaon',
+        'Goregaon East', 'Goregaon West', 'Jogeshwari East', 'Jogeshwari West', 'Juhu',
+        'Kalyan', 'Kandivali East', 'Kandivali West', 'Kanjurmarg', 'Khar',
+        'Kurla', 'Lower Parel', 'Mahalakshmi', 'Malad East', 'Malad West',
+        'Marine Lines', 'Matunga', 'Mira Road', 'Mulund', 'Navi Mumbai',
+        'Nerul', 'Panvel', 'Parel', 'Powai', 'Prabhadevi',
+        'Santacruz East', 'Santacruz West', 'Seawoods', 'Sion', 'Thane',
+        'Vashi', 'Vasai', 'Vikhroli', 'Vile Parle', 'Wadala',
+        'Worli',
       ],
     },
     {
       city: { name: 'Pune', state: 'Maharashtra' },
       localities: [
-        'Kothrud', 'Baner', 'Wakad', 'Hinjewadi', 'Viman Nagar',
-        'Kharadi', 'Hadapsar', 'Koregaon Park', 'Aundh', 'Pimple Saudagar',
-        'Shivajinagar', 'Deccan', 'Pimpri', 'Chinchwad', 'Magarpatta',
-        'Kondhwa', 'Warje', 'Sus', 'Bavdhan', 'Kalyani Nagar',
+        'Aundh', 'Balewadi', 'Baner', 'Bavdhan', 'Bibwewadi',
+        'Camp', 'Chandan Nagar', 'Chinchwad', 'Deccan', 'Dhankawadi',
+        'Dhanori', 'Erandwane', 'Fursungi', 'Hadapsar', 'Hinjewadi',
+        'Kalyani Nagar', 'Karve Nagar', 'Katraj', 'Kharadi', 'Kondhwa',
+        'Koregaon Park', 'Kothrud', 'Magarpatta', 'Mundhwa', 'NIBM Road',
+        'Nigdi', 'Pashan', 'Pimple Gurav', 'Pimple Nilakh', 'Pimple Saudagar',
+        'Pimpri', 'Ravet', 'Shivajinagar', 'Sinhagad Road', 'Sus',
+        'Swargate', 'Tathawade', 'Undri', 'Vadgaon Sheri', 'Viman Nagar',
+        'Wadgaon Budruk', 'Wagholi', 'Wakad', 'Wanowrie', 'Warje',
+       'Yerawada',
       ],
     },
   ];
@@ -103,20 +129,33 @@ async function seedLocalityNeighbors(): Promise<void> {
   }
 
   for (const sameCityLocalities of byCity.values()) {
-    for (const locality of sameCityLocalities) {
-      for (const neighbor of sameCityLocalities) {
-        if (locality.id === neighbor.id) {
+    const sorted = [...sameCityLocalities].sort((a, b) => a.name.localeCompare(b.name));
+    const pairs: { localityId: number; neighborId: number }[] = [];
+
+    for (let index = 0; index < sorted.length; index += 1) {
+      const locality = sorted[index]!;
+      const windowStart = Math.max(0, index - 3);
+      const windowEnd = Math.min(sorted.length - 1, index + 3);
+
+      for (let neighborIndex = windowStart; neighborIndex <= windowEnd; neighborIndex += 1) {
+        if (neighborIndex === index) {
           continue;
         }
 
-        await db
-          .insert(localityNeighbors)
-          .values({
-            localityId: locality.id,
-            neighborId: neighbor.id,
-          })
-          .onConflictDoNothing();
+        const neighbor = sorted[neighborIndex]!;
+        pairs.push({
+          localityId: locality.id,
+          neighborId: neighbor.id,
+        });
       }
+    }
+
+    const batchSize = 200;
+    for (let index = 0; index < pairs.length; index += batchSize) {
+      await db
+        .insert(localityNeighbors)
+        .values(pairs.slice(index, index + batchSize))
+        .onConflictDoNothing();
     }
   }
 }

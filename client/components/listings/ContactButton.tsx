@@ -6,6 +6,7 @@ import { usePostHog } from 'posthog-js/react';
 import { useAuth } from '@/lib/auth';
 import { api } from '@/lib/api';
 import Button from '@/components/ui/Button';
+import { cn } from '@/lib/utils';
 
 interface ContactInfo {
   phone: string;
@@ -19,9 +20,18 @@ interface ContactButtonProps {
   locality?: string;
   propertyType?: string;
   onReveal?: () => void;
+  className?: string;
 }
 
-export default function ContactButton({ listingId, ownerId, city, locality, propertyType, onReveal }: ContactButtonProps) {
+export default function ContactButton({
+  listingId,
+  ownerId,
+  city,
+  locality,
+  propertyType,
+  onReveal,
+  className,
+}: ContactButtonProps) {
   const { isAuthenticated, user } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
@@ -34,7 +44,9 @@ export default function ContactButton({ listingId, ownerId, city, locality, prop
 
   if (isOwner) {
     return (
-      <p className="font-mono text-xs text-muted-foreground uppercase tracking-wide">Your listing</p>
+      <p className={cn('font-mono text-xs text-muted-foreground uppercase tracking-wide', className)}>
+        Your listing
+      </p>
     );
   }
 
@@ -67,7 +79,10 @@ export default function ContactButton({ listingId, ownerId, city, locality, prop
     return (
       <Link
         href={`/auth/login?redirect=${encodeURIComponent(pathname || `/listings/${listingId}`)}`}
-        className="inline-flex items-center justify-center font-sans font-medium text-sm min-h-[44px] px-4 py-2 bg-accent text-accent-foreground rounded-md shadow-sm hover:bg-accent-secondary hover:shadow-md transition-all duration-200"
+        className={cn(
+          'inline-flex items-center justify-center font-sans font-medium text-sm min-h-[44px] px-4 py-2 bg-accent text-accent-foreground rounded-md shadow-sm hover:bg-accent-secondary hover:shadow-md transition-all duration-200',
+          className,
+        )}
       >
         Sign in to Contact
       </Link>
@@ -76,7 +91,7 @@ export default function ContactButton({ listingId, ownerId, city, locality, prop
 
   if (contact) {
     return (
-      <div className="p-4 border border-accent/30 bg-accent/5 rounded-lg">
+      <div className={cn('p-4 border border-accent/30 bg-accent/5 rounded-lg', className)}>
         <p className="font-mono text-xs uppercase tracking-[0.1em] text-accent mb-1">
           Owner Contact
         </p>
@@ -93,7 +108,7 @@ export default function ContactButton({ listingId, ownerId, city, locality, prop
 
   return (
     <>
-      <Button size="sm" onClick={() => void revealContact()} disabled={loading}>
+      <Button size="sm" onClick={() => void revealContact()} disabled={loading} className={className}>
         {loading ? 'Loading...' : 'Contact Owner'}
       </Button>
       {error && (
