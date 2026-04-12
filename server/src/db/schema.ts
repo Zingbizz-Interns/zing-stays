@@ -11,6 +11,7 @@ import {
   index,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 
 export const intentEnum = pgEnum('intent', ['buy', 'rent']);
 export const roomTypeEnum = pgEnum('room_type', [
@@ -79,7 +80,7 @@ export const users = pgTable('users', {
 });
 
 export const accounts = pgTable('accounts', {
-  id: varchar('id', { length: 255 }).primaryKey(),
+  id: varchar('id', { length: 255 }).default(sql`gen_random_uuid()::text`).primaryKey(),
   providerId: varchar('provider_id', { length: 100 }).notNull(),
   accountId: varchar('account_id', { length: 255 }).notNull(),
   userId: integer('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
@@ -98,7 +99,7 @@ export const accounts = pgTable('accounts', {
 ]);
 
 export const sessions = pgTable('sessions', {
-  id: varchar('id', { length: 255 }).primaryKey(),
+  id: varchar('id', { length: 255 }).default(sql`gen_random_uuid()::text`).primaryKey(),
   token: varchar('token', { length: 255 }).notNull().unique(),
   userId: integer('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
   expiresAt: timestamp('expires_at').notNull(),
@@ -113,7 +114,7 @@ export const sessions = pgTable('sessions', {
 ]);
 
 export const verifications = pgTable('verifications', {
-  id: varchar('id', { length: 255 }).primaryKey(),
+  id: varchar('id', { length: 255 }).default(sql`gen_random_uuid()::text`).primaryKey(),
   identifier: varchar('identifier', { length: 255 }).notNull(),
   value: text('value').notNull(),
   expiresAt: timestamp('expires_at').notNull(),

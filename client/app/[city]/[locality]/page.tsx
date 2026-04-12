@@ -7,7 +7,6 @@ import BudgetBandLinks from '@/components/seo/BudgetBandLinks';
 import SeoListingCard from '@/components/seo/SeoListingCard';
 import SeoPageTracker from '@/components/seo/SeoPageTracker';
 import type { ListingCardData } from '@/lib/types';
-import EMICalculator from '@/components/utilities/EMICalculator';
 import RentEstimator from '@/components/utilities/RentEstimator';
 import PriceTrends from '@/components/utilities/PriceTrends';
 
@@ -243,14 +242,9 @@ function WidgetsSection({
   avgPrice: number;
 }) {
   return (
-    <div className="grid lg:grid-cols-3 gap-6 items-start">
+    <div className="grid lg:grid-cols-2 gap-6 items-start">
       <RentEstimator localityId={localityId} apiBase={API_URL} />
       <PriceTrends localityId={localityId} apiBase={API_URL} />
-      {avgPrice > 0 && (
-        <div className="lg:sticky lg:top-24">
-          <EMICalculator defaultPrincipal={avgPrice * 12} />
-        </div>
-      )}
     </div>
   );
 }

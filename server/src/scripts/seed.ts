@@ -10,11 +10,56 @@ async function seedCitiesAndLocalities(): Promise<void> {
   const seedData = [
     {
       city: { name: 'Bangalore', state: 'Karnataka' },
-      localities: ['Koramangala', 'Indiranagar', 'HSR Layout', 'Whitefield'],
+      localities: [
+        'Koramangala', 'Indiranagar', 'HSR Layout', 'Whitefield', 'Electronic City',
+        'Bellandur', 'Marathahalli', 'BTM Layout', 'JP Nagar', 'Jayanagar',
+        'Hebbal', 'Yelahanka', 'Sarjapur Road', 'Bannerghatta Road', 'Rajajinagar',
+        'Malleshwaram', 'Vijayanagar', 'RT Nagar', 'Nagarbhavi', 'Basavanagudi',
+      ],
     },
     {
       city: { name: 'Hyderabad', state: 'Telangana' },
-      localities: ['Madhapur', 'Gachibowli', 'Kondapur', 'Begumpet'],
+      localities: [
+        'Madhapur', 'Gachibowli', 'Kondapur', 'Begumpet', 'Hitech City',
+        'Banjara Hills', 'Jubilee Hills', 'Kukatpally', 'Miyapur', 'Ameerpet',
+        'Secunderabad', 'Uppal', 'LB Nagar', 'Dilsukhnagar', 'Mehdipatnam',
+        'Tolichowki', 'Manikonda', 'Nanakramguda', 'Shamshabad', 'Kompally',
+      ],
+    },
+    {
+      city: { name: 'Chennai', state: 'Tamil Nadu' },
+      localities: [
+        'Anna Nagar', 'T Nagar', 'Adyar', 'Velachery', 'OMR',
+        'Porur', 'Ambattur', 'Perambur', 'Chromepet', 'Tambaram',
+        'Sholinganallur', 'Perungudi', 'Guindy', 'Nungambakkam', 'Egmore',
+        'Mylapore', 'Thiruvanmiyur', 'Kodambakkam', 'Vadapalani', 'Avadi',
+      ],
+    },
+    {
+      city: { name: 'Coimbatore', state: 'Tamil Nadu' },
+      localities: [
+        'RS Puram', 'Gandhipuram', 'Peelamedu', 'Saibaba Colony', 'Race Course',
+        'Singanallur', 'Hopes College', 'Vadavalli', 'Kuniyamuthur', 'Thudiyalur',
+        'Kovaipudur', 'Podanur', 'Ganapathy', 'Ramanathapuram', 'Selvapuram',
+      ],
+    },
+    {
+      city: { name: 'Mumbai', state: 'Maharashtra' },
+      localities: [
+        'Andheri', 'Bandra', 'Powai', 'Malad', 'Goregaon',
+        'Borivali', 'Thane', 'Navi Mumbai', 'Kurla', 'Ghatkopar',
+        'Dadar', 'Worli', 'Colaba', 'Lower Parel', 'Kandivali',
+        'Mira Road', 'Vasai', 'Mulund', 'Vikhroli', 'Chembur',
+      ],
+    },
+    {
+      city: { name: 'Pune', state: 'Maharashtra' },
+      localities: [
+        'Kothrud', 'Baner', 'Wakad', 'Hinjewadi', 'Viman Nagar',
+        'Kharadi', 'Hadapsar', 'Koregaon Park', 'Aundh', 'Pimple Saudagar',
+        'Shivajinagar', 'Deccan', 'Pimpri', 'Chinchwad', 'Magarpatta',
+        'Kondhwa', 'Warje', 'Sus', 'Bavdhan', 'Kalyani Nagar',
+      ],
     },
   ];
 

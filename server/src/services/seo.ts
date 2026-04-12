@@ -1,18 +1,32 @@
 import { db } from '../db';
 import { cities, localities, listings } from '../db/schema';
 import { eq, and, count, avg, min, max, desc, SQL } from 'drizzle-orm';
+import { getTrustBadges } from './completeness';
 
 export interface ListingCard {
   id: number;
   title: string;
   city: string;
   locality: string;
+  citySlug: string;
+  localitySlug: string;
+  cityId: number;
+  localityId: number;
+  ownerId: number;
   intent: 'buy' | 'rent';
   price: number;
+  deposit: number | null;
+  areaSqft: number | null;
+  availableFrom: Date | null;
+  furnishing: string | null;
+  preferredTenants: string;
+  genderPref: string;
+  landmark: string | null;
   propertyType: string;
   roomType: string;
   images: string[];
   foodIncluded: boolean;
+  badges: string[];
 }
 
 /**
@@ -24,12 +38,26 @@ export const LISTING_CARD_COLUMNS = {
   title: listings.title,
   city: cities.name,
   locality: localities.name,
+  citySlug: cities.slug,
+  localitySlug: localities.slug,
+  cityId: listings.cityId,
+  localityId: listings.localityId,
+  ownerId: listings.ownerId,
   intent: listings.intent,
   price: listings.price,
+  deposit: listings.deposit,
+  areaSqft: listings.areaSqft,
+  availableFrom: listings.availableFrom,
+  furnishing: listings.furnishing,
+  preferredTenants: listings.preferredTenants,
+  genderPref: listings.genderPref,
+  landmark: listings.landmark,
   propertyType: listings.propertyType,
   roomType: listings.roomType,
   images: listings.images,
   foodIncluded: listings.foodIncluded,
+  completenessScore: listings.completenessScore,
+  updatedAt: listings.updatedAt,
 } as const;
 
 export async function findActiveCityBySlug(slug: string) {
@@ -59,7 +87,11 @@ export async function queryListingCards(conditions: SQL[], limit = 12): Promise<
     .where(and(...conditions))
     .orderBy(desc(listings.createdAt))
     .limit(limit);
-  return rows as ListingCard[];
+
+  return rows.map(({ completenessScore, updatedAt, ...rest }) => ({
+    ...rest,
+    badges: getTrustBadges({ completenessScore, updatedAt } as Parameters<typeof getTrustBadges>[0]),
+  }));
 }
 
 export async function queryListingStats(conditions: SQL[]) {

@@ -2,6 +2,7 @@ import { Meilisearch } from 'meilisearch';
 import { db } from '../db';
 import { listings, cities, localities } from '../db/schema';
 import { eq } from 'drizzle-orm';
+import { logger } from '../lib/logger';
 
 export const searchClient = new Meilisearch({
   host: process.env.MEILISEARCH_HOST!,
@@ -16,6 +17,7 @@ export async function setupSearchIndex(): Promise<void> {
     filterableAttributes: [
       'city', 'locality', 'city_id', 'locality_id', 'intent',
       'room_type', 'property_type', 'food_included', 'gender_pref', 'price', 'status',
+      'furnishing', 'preferred_tenants', 'available_from_ts',
     ],
     sortableAttributes: ['price', 'completeness_score', 'created_at'],
     rankingRules: [
@@ -33,19 +35,28 @@ export async function setupSearchIndex(): Promise<void> {
 
 export interface SearchDoc {
   id: number;
+  owner_id: number;
   title: string;
   description?: string;
   city: string;
   locality: string;
+  city_slug: string;
+  locality_slug: string;
   city_id?: number;
   locality_id?: number;
   intent?: string;
   landmark?: string;
   price: number;
+  deposit?: number;
+  area_sqft?: number;
   room_type: string;
   property_type: string;
   food_included: boolean;
   gender_pref: string;
+  furnishing?: string;
+  preferred_tenants: string;
+  /** Unix timestamp (seconds). 0 means available immediately (no date set). */
+  available_from_ts: number;
   images: string[];
   completeness_score: number;
   status: string;
@@ -64,19 +75,27 @@ async function fetchSearchDocs(whereClause?: ReturnType<typeof eq>): Promise<Sea
   const query = db
     .select({
       id: listings.id,
+      owner_id: listings.ownerId,
       title: listings.title,
       description: listings.description,
       city: cities.name,
       locality: localities.name,
+      city_slug: cities.slug,
+      locality_slug: localities.slug,
       city_id: listings.cityId,
       locality_id: listings.localityId,
       intent: listings.intent,
       landmark: listings.landmark,
       price: listings.price,
+      deposit: listings.deposit,
+      area_sqft: listings.areaSqft,
       room_type: listings.roomType,
       property_type: listings.propertyType,
       food_included: listings.foodIncluded,
       gender_pref: listings.genderPref,
+      furnishing: listings.furnishing,
+      preferred_tenants: listings.preferredTenants,
+      available_from: listings.availableFrom,
       images: listings.images,
       completeness_score: listings.completenessScore,
       status: listings.status,
@@ -90,19 +109,29 @@ async function fetchSearchDocs(whereClause?: ReturnType<typeof eq>): Promise<Sea
 
   return rows.map((row) => ({
     id: row.id,
+    owner_id: row.owner_id,
     title: row.title,
     description: row.description ?? undefined,
     city: row.city,
     locality: row.locality,
+    city_slug: row.city_slug,
+    locality_slug: row.locality_slug,
     city_id: row.city_id ?? undefined,
     locality_id: row.locality_id ?? undefined,
     intent: row.intent,
     landmark: row.landmark ?? undefined,
     price: row.price,
+    deposit: row.deposit ?? undefined,
+    area_sqft: row.area_sqft ?? undefined,
     room_type: row.room_type,
     property_type: row.property_type,
     food_included: row.food_included,
     gender_pref: row.gender_pref,
+    furnishing: row.furnishing ?? undefined,
+    preferred_tenants: row.preferred_tenants,
+    available_from_ts: row.available_from
+      ? Math.floor(new Date(row.available_from).getTime() / 1000)
+      : 0,
     images: row.images as string[],
     completeness_score: row.completeness_score,
     status: row.status,
@@ -119,12 +148,17 @@ export async function getSearchDocByListingId(listingId: number): Promise<Search
 export async function reindexAllListings(): Promise<void> {
   const docs = await fetchSearchDocs(eq(listings.status, 'active'));
 
-  if (docs.length === 0) return;
+  await listingsIndex.deleteAllDocuments();
+
+  if (docs.length === 0) {
+    logger.info('reindexAllListings: cleared index; no active listings found');
+    return;
+  }
 
   // Meilisearch supports up to 1000 docs per batch
   const BATCH = 500;
   for (let i = 0; i < docs.length; i += BATCH) {
     await listingsIndex.addDocuments(docs.slice(i, i + BATCH));
   }
-  console.log(`reindexAllListings: queued ${docs.length} documents`);
+  logger.info(`reindexAllListings: queued ${docs.length} documents`);
 }

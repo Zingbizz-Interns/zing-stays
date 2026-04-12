@@ -5,7 +5,7 @@ import { eq, and, desc, getTableColumns } from 'drizzle-orm';
 import { requireAuth, AuthRequest } from '../middleware/auth';
 import { getTrustBadges } from '../services/completeness';
 import { logger } from '../lib/logger';
-import { parseIntParam } from '../lib/routeUtils';
+import { parseIntParam, withDisplayLocation } from '../lib/routeUtils';
 
 const router = Router();
 const favoriteListingColumns = {
@@ -28,9 +28,7 @@ router.get('/', requireAuth, async (req: AuthRequest, res) => {
       data: rows
         .filter((row) => row.status === 'active')
         .map((row) => ({
-          ...row,
-          city: row.city ?? '',
-          locality: row.locality ?? '',
+          ...withDisplayLocation(row),
           badges: getTrustBadges(row),
         })),
     });

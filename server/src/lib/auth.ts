@@ -1,10 +1,17 @@
 import bcrypt from 'bcrypt';
-import nodemailer from 'nodemailer';
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { emailOTP } from 'better-auth/plugins';
 import * as schema from '../db/schema';
 import { db } from '../db';
+import { logger } from './logger';
+import {
+  transporter,
+  OTP_EMAIL_FROM,
+  OTP_EMAIL_SUBJECT,
+  OTP_EMAIL_TEXT_TEMPLATE,
+  OTP_DEV_CONSOLE_FALLBACK,
+} from './mailer';
 
 const APP_NAME = process.env.APP_NAME ?? 'ZingBrokers';
 const SERVER_URL = process.env.BETTER_AUTH_URL ?? process.env.SERVER_URL ?? 'http://localhost:4000';
@@ -14,38 +21,14 @@ const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
 const BCRYPT_ROUNDS = 12;
 
-const OTP_EMAIL_FROM = process.env.OTP_EMAIL_FROM;
-const OTP_EMAIL_SUBJECT = process.env.OTP_EMAIL_SUBJECT ?? 'Your ZingBrokers verification code';
-const OTP_EMAIL_TEXT_TEMPLATE =
-  process.env.OTP_EMAIL_TEXT_TEMPLATE ??
-  'Your ZingBrokers verification code is {CODE}. It expires in 10 minutes.';
-const SMTP_HOST = process.env.SMTP_HOST;
-const SMTP_PORT = process.env.SMTP_PORT ? Number(process.env.SMTP_PORT) : undefined;
-const SMTP_USER = process.env.SMTP_USER;
-const SMTP_PASS = process.env.SMTP_PASS;
-const SMTP_SECURE = process.env.SMTP_SECURE === 'true';
-const OTP_DEV_CONSOLE_FALLBACK = process.env.OTP_DEV_CONSOLE_FALLBACK === 'true';
 
-const transporter = SMTP_HOST && SMTP_PORT && OTP_EMAIL_FROM
-  ? nodemailer.createTransport({
-      host: SMTP_HOST,
-      port: SMTP_PORT,
-      secure: SMTP_SECURE,
-      auth: SMTP_USER && SMTP_PASS
-        ? {
-            user: SMTP_USER,
-            pass: SMTP_PASS,
-          }
-        : undefined,
-    })
-  : null;
 
 async function sendOtpEmail(email: string, otp: string, type: string): Promise<void> {
   const text = OTP_EMAIL_TEXT_TEMPLATE.replaceAll('{CODE}', otp);
 
   if (!transporter || !OTP_EMAIL_FROM) {
     if (OTP_DEV_CONSOLE_FALLBACK && process.env.NODE_ENV !== 'production') {
-      console.warn(`Email OTP fallback for ${email} (${type}): ${otp}`);
+      logger.warn(`Email OTP fallback for ${email} (${type}): ${otp}`);
       return;
     }
 

@@ -10,11 +10,13 @@ import { loginSchema, type LoginInput } from '@/lib/schemas/auth';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
 
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+
 export default function LoginPage() {
   const { login } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirect = searchParams.get('redirect') ?? '/dashboard';
+  const redirect = searchParams.get('redirect') ?? '/';
   const oauthError = searchParams.get('error') === 'oauth';
 
   const [error, setError] = useState(oauthError ? 'Google sign-in failed. Please try again.' : '');
@@ -92,7 +94,7 @@ export default function LoginPage() {
             try {
               const result = await authClient.signIn.social({
                 provider: 'google',
-                callbackURL: redirect,
+                callbackURL: `${APP_URL}${redirect}`,
               });
               if (result.error) {
                 throw new Error(result.error.message || 'Google sign-in failed');

@@ -6,6 +6,10 @@ import { cacheGet, cacheSet } from '../lib/redis';
 import { roomTypeValues } from '../lib/listingFields';
 import { logger } from '../lib/logger';
 import { parseIntParam } from '../lib/routeUtils';
+import { computePriceStats } from '../lib/stats';
+
+const RENT_ESTIMATE_CACHE_TTL = 6 * 60 * 60;
+const PRICE_TRENDS_CACHE_TTL = 6 * 60 * 60;
 
 const router = Router();
 
@@ -46,34 +50,18 @@ router.get('/rent-estimate/:localityId', async (req, res) => {
 
     const allPrices = rows.map((r) => r.price).sort((a, b) => a - b);
 
-    function computeStats(prices: number[]) {
-      if (prices.length === 0) return null;
-      const sorted = [...prices].sort((a, b) => a - b);
-      const mid = Math.floor(sorted.length / 2);
-      const median =
-        sorted.length % 2 === 0
-          ? Math.round((sorted[mid - 1] + sorted[mid]) / 2)
-          : sorted[mid];
-      return {
-        median,
-        min: sorted[0],
-        max: sorted[sorted.length - 1],
-        count: sorted.length,
-      };
-    }
-
     const byRoomType = Object.fromEntries(
       roomTypeValues.map((roomType) => [
         roomType,
-        computeStats(rows.filter((r) => r.roomType === roomType).map((r) => r.price)),
+        computePriceStats(rows.filter((r) => r.roomType === roomType).map((r) => r.price)),
       ]),
-    ) as Record<(typeof roomTypeValues)[number], ReturnType<typeof computeStats>>;
+    ) as Record<(typeof roomTypeValues)[number], ReturnType<typeof computePriceStats>>;
 
     const sampleSize = allPrices.length;
     const confidence: 'high' | 'medium' | 'low' =
       sampleSize >= 10 ? 'high' : sampleSize >= 5 ? 'medium' : 'low';
 
-    const overall = computeStats(allPrices);
+    const overall = computePriceStats(allPrices);
     if (!overall) {
       res.json({
         localityId,
@@ -93,7 +81,7 @@ router.get('/rent-estimate/:localityId', async (req, res) => {
       confidence,
     };
 
-    await cacheSet(cacheKey, payload, 6 * 60 * 60);
+    await cacheSet(cacheKey, payload, RENT_ESTIMATE_CACHE_TTL);
     res.json(payload);
   } catch (err) {
     logger.error('rent-estimate error', err);
@@ -175,7 +163,7 @@ router.get('/price-trends/:localityId', async (req, res) => {
     }
 
     const payload = { localityId, dataType, trend, direction };
-    await cacheSet(cacheKey, payload, 6 * 60 * 60);
+    await cacheSet(cacheKey, payload, PRICE_TRENDS_CACHE_TTL);
     res.json(payload);
   } catch (err) {
     logger.error('price-trends error', err);

@@ -5,6 +5,7 @@ import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
 import { sql } from 'drizzle-orm';
 import { toNodeHandler } from 'better-auth/node';
+import { logger } from './lib/logger';
 
 dotenv.config();
 
@@ -86,7 +87,7 @@ app.use(cors({
 // (e.g., nginx → this server = 1).
 app.set('trust proxy', 1);
 
-app.all('/api/auth/*', toNodeHandler(auth));
+app.all('/api/auth/{*path}', toNodeHandler(auth));
 app.use(express.json());
 app.use('/api/account', authRoutes);
 app.use('/api/listings', listingRoutes);
@@ -115,7 +116,7 @@ app.get('/api/health', (_req, res) => {
 });
 
 app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-  console.error(err);
+  logger.error('Unhandled error', err);
   res.status(500).json({ error: 'Internal server error' });
 });
 
@@ -124,7 +125,7 @@ async function bootstrap(): Promise<void> {
     await checkDatabaseConnection();
   } catch (err) {
     dependencyStatus.database = 'down';
-    console.error('Database connection check failed:', err);
+    logger.error('Database connection check failed:', err);
     process.exit(1);
   }
 
@@ -132,7 +133,7 @@ async function bootstrap(): Promise<void> {
     await checkRedisConnection();
   } catch (err) {
     dependencyStatus.redis = 'down';
-    console.error('Redis connection check failed:', err);
+    logger.error('Redis connection check failed:', err);
   }
 
   try {
@@ -141,21 +142,21 @@ async function bootstrap(): Promise<void> {
     await reindexAllListings();
   } catch (err) {
     dependencyStatus.search = 'down';
-    console.error('Search initialization failed:', err);
+    logger.error('Search initialization failed:', err);
   }
 
   if (dependencyStatus.redis === 'up') {
     schedulePriceSnapshots().catch((err) => {
-      console.error('Price snapshot scheduling failed:', err);
+      logger.error('Price snapshot scheduling failed:', err);
     });
   }
 
   const server = app.listen(PORT, () =>
-    console.log(`Server running on port ${PORT}`)
+    logger.info(`Server running on port ${PORT}`)
   );
 
   server.on('error', (err: NodeJS.ErrnoException) => {
-    console.error('Failed to start server:', err.message);
+    logger.error('Failed to start server:', err.message);
     process.exit(1);
   });
 }

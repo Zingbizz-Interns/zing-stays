@@ -3,6 +3,7 @@ import { bullRedis } from '../lib/queues';
 import { db } from '../db';
 import { reviews } from '../db/schema';
 import { eq } from 'drizzle-orm';
+import { logger } from '../lib/logger';
 
 export interface ModerationJobData {
   reviewId: number;
@@ -23,7 +24,7 @@ export const moderationWorker = new Worker<ModerationJobData>(
 
     const [review] = await db.select().from(reviews).where(eq(reviews.id, reviewId)).limit(1);
     if (!review) {
-      console.warn(`moderationWorker: review ${reviewId} not found`);
+      logger.warn(`moderationWorker: review ${reviewId} not found`);
       return;
     }
 
@@ -36,7 +37,7 @@ export const moderationWorker = new Worker<ModerationJobData>(
     // Hold for manual review if flagged words present
     if (containsFlaggedWord(review.body)) {
       // Status stays 'pending' — no update needed, but log it
-      console.info(`moderationWorker: review ${reviewId} held for manual moderation (flagged words)`);
+      logger.info(`moderationWorker: review ${reviewId} held for manual moderation (flagged words)`);
       return;
     }
 
@@ -53,5 +54,5 @@ export const moderationWorker = new Worker<ModerationJobData>(
 );
 
 moderationWorker.on('failed', (job, err) => {
-  console.error(`moderationWorker job ${job?.id} failed:`, err.message);
+  logger.error(`moderationWorker job ${job?.id} failed:`, err.message);
 });

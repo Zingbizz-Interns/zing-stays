@@ -1,5 +1,6 @@
 import { Queue } from 'bullmq';
 import IORedis from 'ioredis';
+import { logger } from './logger';
 
 // BullMQ requires maxRetriesPerRequest: null on the ioredis connection
 export const bullRedis = new IORedis(process.env.REDIS_URL!, {
@@ -9,7 +10,7 @@ export const bullRedis = new IORedis(process.env.REDIS_URL!, {
 });
 
 bullRedis.on('error', (err) => {
-  console.error('BullMQ Redis error:', err.message);
+  logger.error('BullMQ Redis error:', err.message);
 });
 
 const connection = bullRedis;

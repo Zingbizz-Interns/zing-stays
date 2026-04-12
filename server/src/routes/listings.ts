@@ -1,4 +1,4 @@
-import { Router, type Request } from 'express';
+import { Router } from 'express';
 import { db } from '../db';
 import { listings, contactLeads, users, cities, localities } from '../db/schema';
 import { eq, and, desc, gte, lte, SQL, getTableColumns } from 'drizzle-orm';
@@ -6,115 +6,25 @@ import { requireAuth, AuthRequest, getAuthPayload } from '../middleware/auth';
 import { contactRevealLimiter } from '../middleware/rateLimit';
 import { calculateCompleteness, getTrustBadges } from '../services/completeness';
 import { searchIndexQueue } from '../lib/queues';
-import { cacheGet, cacheSet, cacheInvalidate, cacheInvalidateByPrefix } from '../lib/redis';
-import { logger } from '../lib/logger';
-import { ListingInputError, parseIntParam } from '../lib/routeUtils';
+import { cacheGet, cacheSet } from '../lib/redis';
 import {
-  furnishingValues,
-  genderValues,
-  intentValues,
-  isRoomTypeAllowedForPropertyType,
-  preferredTenantValues,
-  propertyTypeValues,
-  roomTypeValues,
-} from '../lib/listingFields';
+  getListingsListCacheKey,
+  getListingDetailCacheKey,
+  invalidateListingCaches,
+  LISTINGS_LIST_CACHE_TTL,
+  LISTING_DETAIL_CACHE_TTL,
+} from '../lib/listingCache';
+import { logger } from '../lib/logger';
+import { ListingInputError, parseIntParam, withDisplayLocation, canModifyListing } from '../lib/routeUtils';
+import {
+  listingInputSchema,
+  createListingSchema,
+  updateListingSchema,
+  listingsQuerySchema,
+} from '../lib/listingSchemas';
 import { z } from 'zod';
 
 const router = Router();
-
-const optionalNumberField = z.preprocess((value) => {
-  if (value === '' || value === null || value === undefined) {
-    return undefined;
-  }
-
-  return value;
-}, z.coerce.number().int().min(0).optional());
-
-const optionalDateField = z.preprocess((value) => {
-  if (value === '' || value === null || value === undefined) {
-    return undefined;
-  }
-
-  if (value instanceof Date) {
-    return value;
-  }
-
-  if (typeof value === 'string' || typeof value === 'number') {
-    const parsed = new Date(value);
-    if (!Number.isNaN(parsed.getTime())) {
-      return parsed;
-    }
-  }
-
-  return value;
-}, z.date().optional());
-
-const listingInputSchema = z.object({
-  title: z.string().min(5).max(200),
-  cityId: z.number().int().positive().optional(),
-  localityId: z.number().int().positive().optional(),
-  intent: z.enum(intentValues).optional().default('rent'),
-  price: z.number().int().min(500).max(500000),
-  roomType: z.enum(roomTypeValues),
-  propertyType: z.enum(propertyTypeValues),
-  deposit: optionalNumberField,
-  areaSqft: optionalNumberField,
-  availableFrom: optionalDateField,
-  furnishing: z.enum(furnishingValues).optional(),
-  preferredTenants: z.enum(preferredTenantValues).optional().default('any'),
-  description: z.string().max(2000).optional(),
-  landmark: z.string().max(200).optional(),
-  address: z.string().optional(),
-  foodIncluded: z.boolean().optional().default(false),
-  genderPref: z.enum(genderValues).optional().default('any'),
-  amenities: z.array(z.string()).optional().default([]),
-  rules: z.string().optional(),
-  images: z.array(z.string().url()).optional().default([]),
-}).superRefine((value, ctx) => {
-  if (!isRoomTypeAllowedForPropertyType(value.roomType, value.propertyType)) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ['roomType'],
-      message:
-        value.propertyType === 'pg' || value.propertyType === 'hostel'
-          ? 'PG/Hostel listings must use Single, Double, or Multiple room types.'
-          : 'Apartment/Flat listings must use BHK room types.',
-    });
-  }
-});
-
-const createListingSchema = listingInputSchema.superRefine((value, ctx) => {
-  if (!value.cityId) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ['cityId'],
-      message: 'cityId is required',
-    });
-  }
-  if (!value.localityId) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ['localityId'],
-      message: 'localityId is required',
-    });
-  }
-});
-
-const updateListingSchema = listingInputSchema.partial();
-
-const listingsQuerySchema = z.object({
-  cityId: z.coerce.number().int().positive().optional(),
-  localityId: z.coerce.number().int().positive().optional(),
-  intent: z.enum(intentValues).optional(),
-  room_type: z.enum(roomTypeValues).optional(),
-  property_type: z.enum(propertyTypeValues).optional(),
-  food_included: z.enum(['true', 'false']).optional(),
-  gender: z.enum(genderValues).optional(),
-  price_min: z.coerce.number().int().positive().optional(),
-  price_max: z.coerce.number().int().positive().optional(),
-  page: z.coerce.number().int().positive().default(1),
-  limit: z.coerce.number().int().min(1).max(50).default(20),
-});
 
 type ListingLocationInput = {
   cityId?: number;
@@ -126,46 +36,13 @@ type ExistingListingLocation = {
   localityId: number | null;
 };
 
-const LISTINGS_LIST_CACHE_PREFIX = 'cache:listings:list:';
-const LISTING_DETAIL_CACHE_PREFIX = 'cache:listings:detail:';
-
-function getListingsListCacheKey(query: Request['query']): string {
-  const params = new URLSearchParams();
-  Object.entries(query)
-    .sort(([left], [right]) => left.localeCompare(right))
-    .forEach(([key, value]) => {
-      if (value === undefined) return;
-      if (Array.isArray(value)) {
-        value
-          .filter((item): item is string => typeof item === 'string')
-          .forEach((item) => params.append(key, item));
-        return;
-      }
-      if (typeof value === 'string') {
-        params.set(key, value);
-      }
-    });
-
-  return `${LISTINGS_LIST_CACHE_PREFIX}${params.toString()}`;
-}
-
-function getListingDetailCacheKey(id: number): string {
-  return `${LISTING_DETAIL_CACHE_PREFIX}${id}`;
-}
-
 const listingResponseColumns = {
   ...getTableColumns(listings),
   city: cities.name,
   locality: localities.name,
+  citySlug: cities.slug,
+  localitySlug: localities.slug,
 };
-
-async function invalidateListingCaches(listingId?: number): Promise<void> {
-  const invalidations: Promise<unknown>[] = [cacheInvalidateByPrefix(LISTINGS_LIST_CACHE_PREFIX)];
-  if (listingId !== undefined) {
-    invalidations.push(cacheInvalidate(getListingDetailCacheKey(listingId)));
-  }
-  await Promise.all(invalidations);
-}
 
 async function resolveListingLocation(
   input: ListingLocationInput,
@@ -212,12 +89,8 @@ async function resolveListingLocation(
     }
   }
 
-  if (!resolvedCityId) {
-    throw new ListingInputError('cityId is required');
-  }
-  if (!resolvedLocalityId) {
-    throw new ListingInputError('localityId is required');
-  }
+  if (!resolvedCityId) throw new ListingInputError('cityId is required');
+  if (!resolvedLocalityId) throw new ListingInputError('localityId is required');
 
   return {
     city: cityRow?.name ?? '',
@@ -238,16 +111,11 @@ async function getListingWithLocationById(id: number) {
     .then(rows => rows[0]);
 }
 
-function withDisplayLocation<T extends { city: string | null; locality: string | null }>(listing: T) {
+function enrichWithBadges<T extends { city: string | null; locality: string | null; completenessScore: number; updatedAt: Date }>(listing: T) {
   return {
-    ...listing,
-    city: listing.city ?? '',
-    locality: listing.locality ?? '',
+    ...withDisplayLocation(listing),
+    badges: getTrustBadges(listing as unknown as Parameters<typeof getTrustBadges>[0]),
   };
-}
-
-function isListingInputError(error: unknown): error is ListingInputError {
-  return error instanceof ListingInputError;
 }
 
 // GET /api/listings — public list with filters
@@ -287,17 +155,11 @@ router.get('/', async (req, res) => {
       .limit(limit)
       .offset(offset);
     const payload = {
-      data: rows.map((listing) => {
-        const normalized = withDisplayLocation(listing);
-        return {
-          ...normalized,
-          badges: getTrustBadges(normalized),
-        };
-      }),
+      data: rows.map(enrichWithBadges),
       page,
       limit,
     };
-    await cacheSet(cacheKey, payload, 60);
+    await cacheSet(cacheKey, payload, LISTINGS_LIST_CACHE_TTL);
     res.json(payload);
   } catch (err) {
     logger.error('listings list error', err);
@@ -315,14 +177,7 @@ router.get('/mine', requireAuth, async (req: AuthRequest, res) => {
       .leftJoin(localities, eq(listings.localityId, localities.id))
       .where(eq(listings.ownerId, req.user!.userId))
       .orderBy(desc(listings.updatedAt));
-    const withBadges = rows.map((listing) => {
-      const normalized = withDisplayLocation(listing);
-      return {
-        ...normalized,
-        badges: getTrustBadges(normalized),
-      };
-    });
-    res.json({ data: withBadges });
+    res.json({ data: rows.map(enrichWithBadges) });
   } catch (err) {
     logger.error('my listings error', err);
     res.status(500).json({ error: 'Failed to fetch your listings' });
@@ -378,7 +233,7 @@ router.get('/:id', async (req, res) => {
       hasContacted,
     };
     if (canUseCache) {
-      await cacheSet(cacheKey, payload, 300);
+      await cacheSet(cacheKey, payload, LISTING_DETAIL_CACHE_TTL);
     }
     res.json(payload);
   } catch (err) {
@@ -436,7 +291,7 @@ router.post('/', requireAuth, async (req: AuthRequest, res) => {
     await invalidateListingCaches(listing.id);
     res.status(201).json(created ?? listing);
   } catch (err) {
-    if (isListingInputError(err)) {
+    if (err instanceof ListingInputError) {
       res.status(400).json({ error: err.message });
       return;
     }
@@ -452,7 +307,7 @@ router.put('/:id', requireAuth, async (req: AuthRequest, res) => {
   try {
     const [existing] = await db.select().from(listings).where(eq(listings.id, id)).limit(1);
     if (!existing) { res.status(404).json({ error: 'Not found' }); return; }
-    if (existing.ownerId !== req.user!.userId && !req.user!.isAdmin) {
+    if (!canModifyListing(req, existing)) {
       res.status(403).json({ error: 'Forbidden' }); return;
     }
     const result = updateListingSchema.safeParse(req.body);
@@ -494,7 +349,7 @@ router.put('/:id', requireAuth, async (req: AuthRequest, res) => {
     await invalidateListingCaches(updated.id);
     res.json(hydrated ?? updated);
   } catch (err) {
-    if (isListingInputError(err)) {
+    if (err instanceof ListingInputError) {
       res.status(400).json({ error: err.message });
       return;
     }
@@ -505,8 +360,8 @@ router.put('/:id', requireAuth, async (req: AuthRequest, res) => {
 
 // PATCH /api/listings/:id/status — change listing status (owner or admin)
 router.patch('/:id/status', requireAuth, async (req: AuthRequest, res) => {
-  const id = parseInt(req.params.id as string);
-  if (isNaN(id)) { res.status(400).json({ error: 'Invalid ID' }); return; }
+  const id = parseIntParam(req, res, 'id');
+  if (id === null) return;
 
   const statusSchema = z.object({ status: z.enum(['draft', 'active', 'inactive']) });
   const result = statusSchema.safeParse(req.body);
@@ -515,7 +370,7 @@ router.patch('/:id/status', requireAuth, async (req: AuthRequest, res) => {
   try {
     const [existing] = await db.select().from(listings).where(eq(listings.id, id)).limit(1);
     if (!existing) { res.status(404).json({ error: 'Not found' }); return; }
-    if (existing.ownerId !== req.user!.userId && !req.user!.isAdmin) {
+    if (!canModifyListing(req, existing)) {
       res.status(403).json({ error: 'Forbidden' }); return;
     }
 
@@ -540,7 +395,7 @@ router.patch('/:id/status', requireAuth, async (req: AuthRequest, res) => {
     await invalidateListingCaches(id);
     res.json({ id: updated.id, status: updated.status });
   } catch (err) {
-    console.error('status update error:', err);
+    logger.error('status update error', err);
     res.status(500).json({ error: 'Failed to update status' });
   }
 });
@@ -552,7 +407,7 @@ router.delete('/:id', requireAuth, async (req: AuthRequest, res) => {
   try {
     const [existing] = await db.select().from(listings).where(eq(listings.id, id)).limit(1);
     if (!existing) { res.status(404).json({ error: 'Not found' }); return; }
-    if (existing.ownerId !== req.user!.userId && !req.user!.isAdmin) {
+    if (!canModifyListing(req, existing)) {
       res.status(403).json({ error: 'Forbidden' }); return;
     }
     await db.delete(listings).where(eq(listings.id, id));

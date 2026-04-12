@@ -4,7 +4,6 @@ import LocalityLinks from '@/components/seo/LocalityLinks';
 import BudgetBandLinks from '@/components/seo/BudgetBandLinks';
 import SeoListingCard from '@/components/seo/SeoListingCard';
 import SeoPageTracker from '@/components/seo/SeoPageTracker';
-import EMICalculator from '@/components/utilities/EMICalculator';
 import type { ListingCardData } from '@/lib/types';
 
 export const revalidate = 3600;
@@ -157,7 +156,7 @@ export default async function CityPage({
               {propertyTypes.map(({ type, count }) => (
                 <a
                   key={type}
-                  href={`/listings?cityId=${city.id}&property_type=${type}`}
+                  href={`/listings?cityId=${city.id}&propertyType=${type}`}
                   className="px-4 py-2 border border-border rounded-lg font-sans text-sm hover:border-accent hover:text-accent transition-colors"
                 >
                   {type.charAt(0).toUpperCase() + type.slice(1)}
@@ -180,12 +179,6 @@ export default async function CityPage({
             minPrice={stats.minPrice}
             maxPrice={stats.maxPrice}
           />
-        )}
-
-        {stats.avgPrice > 0 && (
-          <div className="md:sticky md:bottom-6 md:ml-auto md:max-w-sm">
-            <EMICalculator defaultPrincipal={stats.avgPrice * 12} />
-          </div>
         )}
       </div>
     </>

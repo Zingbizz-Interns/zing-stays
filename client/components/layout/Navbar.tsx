@@ -19,9 +19,14 @@ export default function Navbar() {
             Browse Rooms
           </Link>
           {isAuthenticated && (
-            <Link href="/dashboard" className="font-sans text-sm font-medium tracking-[0.05em] text-muted-foreground hover:text-foreground transition-colors">
-              Dashboard
-            </Link>
+            <>
+              <Link href="/dashboard" className="font-sans text-sm font-medium tracking-[0.05em] text-muted-foreground hover:text-foreground transition-colors">
+                Dashboard
+              </Link>
+              <Link href="/dashboard/favorites" className="font-sans text-sm font-medium tracking-[0.05em] text-muted-foreground hover:text-foreground transition-colors">
+                Saved
+              </Link>
+            </>
           )}
         </div>
 
@@ -38,7 +43,7 @@ export default function Navbar() {
                   </span>
                 ) : (
                   <Link
-                    href="/dashboard/listings/new"
+                    href="/dashboard/verify"
                     className="font-mono text-xs text-amber-600 hover:text-amber-700 uppercase tracking-[0.1em] transition-colors"
                   >
                     Get Verified
@@ -68,7 +73,7 @@ export default function Navbar() {
             </div>
           )}
           <Link
-            href="/dashboard/listings/new"
+            href={isAuthenticated && user?.isPosterVerified ? '/dashboard/listings/new' : '/dashboard/verify'}
             className={cn(
               'inline-flex items-center justify-center font-sans font-medium touch-manipulation transition-all duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
               'min-h-[44px] px-4 py-2 text-sm',

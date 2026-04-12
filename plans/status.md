@@ -24,9 +24,9 @@
 | 2 | Schema Cleanup & Foundation | `COMPLETED` | Depends on Phase 1 |
 | 3 | Authentication Redesign | `COMPLETED` | Depends on Phase 2 |
 | 4 | Guided Search Widget | `COMPLETED` | Depends on Phase 3 |
-| 5 | Filter Panel Redesign | `NOT_STARTED` | Depends on Phase 4 |
-| 6 | Listing Card Redesign | `NOT_STARTED` | Depends on Phase 5 |
-| 7 | EMI Calculator Visibility | `NOT_STARTED` | Independent, can run parallel to Phase 6 |
+| 5 | Filter Panel Redesign | `COMPLETED` | Depends on Phase 4 |
+| 6 | Listing Card Redesign | `COMPLETED` | Depends on Phase 5 |
+| 7 | EMI Calculator Visibility | `COMPLETED` | Independent, can run parallel to Phase 6 |
 
 ---
 
@@ -97,21 +97,21 @@
 
 | Subtask | Status | Notes |
 |---------|--------|-------|
-| 5.1 Frontend: New `ListingFilters` component (replaces old sidebar) | `NOT_STARTED` | Chip-style controls |
-| 5.2a Frontend: BHK filter chips (Apartment/Flat contexts only) | `NOT_STARTED` | 1BHK–4BHK; hidden when propertyType is pg/hostel |
-| 5.2b Frontend: Occupancy filter chips (PG/Hostel contexts only) | `NOT_STARTED` | Single/Double/Multiple; replaces BHK chips; URL param `roomType` same key |
-| 5.3 Frontend: Price/rent range slider or dual input | `NOT_STARTED` | Min/max price URL params |
-| 5.4 Frontend: Availability filter | `NOT_STARTED` | Date or immediate/upcoming chips |
-| 5.5 Frontend: Preferred tenants filter (students, working, family, any) | `NOT_STARTED` | Chip multi-select |
-| 5.6 Frontend: Furnishing filter (furnished, semi, unfurnished) | `NOT_STARTED` | Chip multi-select |
-| 5.7 Frontend: Property type filter (PG, Hostel, Apartment, Flat) | `NOT_STARTED` | Chip multi-select; Buy intent must lock to Apartment/Flat only |
-| 5.8 Frontend: Gender preference filter | `NOT_STARTED` | Male/Female/Any chips |
-| 5.9 Frontend: Food included toggle | `NOT_STARTED` | Boolean filter chip |
-| 5.10 Frontend: Active filter count badge in filter header | `NOT_STARTED` | Count non-default active filters |
-| 5.11 Frontend: Reset all filters action (clears URL params) | `NOT_STARTED` | Resets URL to clean state |
-| 5.12 Frontend: All filter state is URL-driven (useSearchParams) | `NOT_STARTED` | No local state for filter values |
-| 5.13 Verify backend Buy normalization from Phase 4 | `NOT_STARTED` | Confirm Phase 4.12 covers buy-only apartment/flat rule; do not re-implement |
-| 5.14 Frontend: URL canonicalization on listings page | `NOT_STARTED` | Strip invalid param combos (buy+pg, bhk+pg, etc.) on page load before API call |
+| 5.1 Frontend: New `ListingFilters` component (replaces old sidebar) | `COMPLETED` | Chip-style controls; active count badge + reset |
+| 5.2a Frontend: BHK filter chips (Apartment/Flat contexts only) | `COMPLETED` | 1BHK–4BHK; hidden when propertyType is pg/hostel |
+| 5.2b Frontend: Occupancy filter chips (PG/Hostel contexts only) | `COMPLETED` | Single/Double/Multiple; replaces BHK chips; URL param `roomType` same key |
+| 5.3 Frontend: Price/rent range slider or dual input | `COMPLETED` | Min/max price URL params with 400ms debounce |
+| 5.4 Frontend: Availability filter | `COMPLETED` | now/soon/any chips; backend filters on available_from_ts |
+| 5.5 Frontend: Preferred tenants filter (students, working, family, any) | `COMPLETED` | Chip multi-select |
+| 5.6 Frontend: Furnishing filter (furnished, semi, unfurnished) | `COMPLETED` | Chip multi-select |
+| 5.7 Frontend: Property type filter (PG, Hostel, Apartment, Flat) | `COMPLETED` | Chip multi-select; Buy intent locks to Apartment/Flat only |
+| 5.8 Frontend: Gender preference filter | `COMPLETED` | Male/Female/Any chips; URL param genderPref |
+| 5.9 Frontend: Food included toggle | `COMPLETED` | Boolean filter chip; URL param foodIncluded |
+| 5.10 Frontend: Active filter count badge in filter header | `COMPLETED` | Count non-default active filters |
+| 5.11 Frontend: Reset all filters action (clears URL params) | `COMPLETED` | Resets URL to clean state, preserves intent/q/localityId |
+| 5.12 Frontend: All filter state is URL-driven (useSearchParams) | `COMPLETED` | No local state for filter values |
+| 5.13 Verify backend Buy normalization from Phase 4 | `COMPLETED` | Phase 4.12 normalization verified in searchFilters.ts; not duplicated |
+| 5.14 Frontend: URL canonicalization on listings page | `COMPLETED` | Strips buy+pg, bhk+pg, occupancy+apt combos via router.replace |
 
 ---
 
@@ -119,13 +119,13 @@
 
 | Subtask | Status | Notes |
 |---------|--------|-------|
-| 6.1 Frontend: New `ListingCard` horizontal layout (desktop) | `NOT_STARTED` | Image left, details right |
-| 6.2 Frontend: Mobile stacked layout for `ListingCard` | `NOT_STARTED` | Responsive via Tailwind |
-| 6.3 Frontend: Display deposit, area, furnishing, availability in card | `NOT_STARTED` | New schema fields from Phase 2 |
-| 6.4 Frontend: "Explore nearby" link on card | `NOT_STARTED` | Links to locality page |
-| 6.5 Frontend: Nearest landmark / distance info on card | `NOT_STARTED` | Pulls from listing `landmark` field |
-| 6.6 Frontend: Primary CTA (contact owner) inline on card | `NOT_STARTED` | Uses `ContactButton` component |
-| 6.7 Frontend: Favorite action inline on card | `NOT_STARTED` | Uses `FavoriteButton` component |
+| 6.1 Frontend: New `ListingCard` horizontal layout (desktop) | `COMPLETED` | Image left, details right |
+| 6.2 Frontend: Mobile stacked layout for `ListingCard` | `COMPLETED` | Responsive via Tailwind |
+| 6.3 Frontend: Display deposit, area, furnishing, availability in card | `COMPLETED` | New schema fields from Phase 2 |
+| 6.4 Frontend: "Explore nearby" link on card | `COMPLETED` | Links to locality page |
+| 6.5 Frontend: Nearest landmark / distance info on card | `COMPLETED` | Pulls from listing `landmark` field |
+| 6.6 Frontend: Primary CTA (contact owner) inline on card | `COMPLETED` | Uses `ContactButton` component |
+| 6.7 Frontend: Favorite action inline on card | `COMPLETED` | Uses `FavoriteButton` component |
 
 ---
 
@@ -133,8 +133,8 @@
 
 | Subtask | Status | Notes |
 |---------|--------|-------|
-| 7.1 Frontend: Show `EMICalculator` only on buy listing detail pages | `NOT_STARTED` | Check `listing.intent === 'buy'` |
-| 7.2 Frontend: Remove `EMICalculator` from `/[city]/[locality]/page.tsx` | `NOT_STARTED` | Locality pages are rent-focused |
+| 7.1 Frontend: Show `EMICalculator` only on buy listing detail pages | `COMPLETED` | Check `listing.intent === 'buy'` |
+| 7.2 Frontend: Remove `EMICalculator` from `/[city]/[locality]/page.tsx` | `COMPLETED` | Removed from city and locality pages |
 
 ---
 
@@ -146,3 +146,6 @@
 | 2026-04-10 | 2 | 2.1–2.7 | claude-sonnet-4-6 | All Phase 2 subtasks complete |
 | 2026-04-10 | 3 | 3.1–3.12 | claude-sonnet-4-6 | All Phase 3 subtasks complete |
 | 2026-04-10 | 4 | 4.1–4.12 | claude-sonnet-4-6 | All Phase 4 subtasks complete |
+| 2026-04-11 | 5 | 5.1–5.14 | claude-sonnet-4-6 | All Phase 5 subtasks complete |
+| 2026-04-12 | 6 | 6.1–6.7 | claude-sonnet-4-6 | All Phase 6 subtasks complete |
+| 2026-04-12 | 7 | 7.1–7.2 | claude-sonnet-4-6 | All Phase 7 subtasks complete |

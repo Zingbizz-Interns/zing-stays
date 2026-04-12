@@ -4,14 +4,13 @@ import { listings, cities, localities } from '../db/schema';
 import { eq, desc, getTableColumns } from 'drizzle-orm';
 import { requireAuth, requireAdmin, AuthRequest } from '../middleware/auth';
 import { searchIndexQueue } from '../lib/queues';
-import { cacheInvalidate, cacheInvalidateByPrefix } from '../lib/redis';
 import { logger } from '../lib/logger';
-import { parseIntParam } from '../lib/routeUtils';
+import { parseIntParam, withDisplayLocation } from '../lib/routeUtils';
+import { invalidateListingCaches } from '../lib/listingCache';
 
 const router = Router();
 router.use(requireAuth, requireAdmin);
-const LISTINGS_LIST_CACHE_PREFIX = 'cache:listings:list:';
-const LISTING_DETAIL_CACHE_PREFIX = 'cache:listings:detail:';
+
 const adminListingColumns = {
   ...getTableColumns(listings),
   city: cities.name,
@@ -28,11 +27,7 @@ router.get('/listings', async (_req, res) => {
       .orderBy(desc(listings.createdAt))
       .limit(100);
     res.json({
-      data: rows.map((row) => ({
-        ...row,
-        city: row.city ?? '',
-        locality: row.locality ?? '',
-      })),
+      data: rows.map(withDisplayLocation),
     });
   } catch (err) {
     logger.error('admin listings error', err);
@@ -62,10 +57,7 @@ router.put('/listings/:id/status', async (req: AuthRequest, res) => {
         (err) => logger.error('searchIndexQueue add error', err),
       );
     }
-    await Promise.all([
-      cacheInvalidate(`${LISTING_DETAIL_CACHE_PREFIX}${id}`),
-      cacheInvalidateByPrefix(LISTINGS_LIST_CACHE_PREFIX),
-    ]);
+    await invalidateListingCaches(id);
     res.json(updated);
   } catch (err) {
     logger.error('admin status error', err);

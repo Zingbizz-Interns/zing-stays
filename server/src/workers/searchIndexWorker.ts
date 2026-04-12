@@ -1,6 +1,7 @@
 import { Worker } from 'bullmq';
 import { bullRedis } from '../lib/queues';
 import { listingsIndex, getSearchDocByListingId } from '../services/search';
+import { logger } from '../lib/logger';
 
 export interface SearchIndexJobData {
   listingId: number;
@@ -20,7 +21,7 @@ export const searchIndexWorker = new Worker<SearchIndexJobData>(
     // upsert: fetch from DB and push to Meilisearch
     const doc = await getSearchDocByListingId(listingId);
     if (!doc) {
-      console.warn(`searchIndexWorker: listing ${listingId} not found, skipping`);
+      logger.warn(`searchIndexWorker: listing ${listingId} not found, skipping`);
       return;
     }
 
@@ -30,5 +31,5 @@ export const searchIndexWorker = new Worker<SearchIndexJobData>(
 );
 
 searchIndexWorker.on('failed', (job, err) => {
-  console.error(`searchIndexWorker job ${job?.id} failed:`, err.message);
+  logger.error(`searchIndexWorker job ${job?.id} failed:`, err.message);
 });

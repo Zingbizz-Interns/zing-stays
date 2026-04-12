@@ -4,6 +4,7 @@ import { db } from '../db';
 import { listings, localities, priceSnapshots } from '../db/schema';
 import { eq, and, sql } from 'drizzle-orm';
 import { cacheInvalidate } from '../lib/redis';
+import { logger } from '../lib/logger';
 
 export const snapshotQueue = new Queue('price-snapshots', { connection: bullRedis });
 
@@ -48,7 +49,7 @@ async function runSnapshot(): Promise<void> {
     await cacheInvalidate(`util:trends:${localityId}`);
   }
 
-  console.log(`priceSnapshotWorker: snapshots taken for ${localityCounts.length} localities`);
+  logger.info(`priceSnapshotWorker: snapshots taken for ${localityCounts.length} localities`);
 }
 
 export const priceSnapshotWorker = new Worker(
@@ -58,7 +59,7 @@ export const priceSnapshotWorker = new Worker(
 );
 
 priceSnapshotWorker.on('failed', (job, err) => {
-  console.error(`priceSnapshotWorker job ${job?.id} failed:`, err.message);
+  logger.error(`priceSnapshotWorker job ${job?.id} failed:`, err.message);
 });
 
 /** Register the weekly recurring snapshot job (idempotent — BullMQ deduplicates by repeat key). */

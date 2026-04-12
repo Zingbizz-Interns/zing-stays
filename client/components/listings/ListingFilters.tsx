@@ -1,185 +1,115 @@
 'use client';
 import { useRouter, useSearchParams } from 'next/navigation';
-import Input from '@/components/ui/Input';
-import Button from '@/components/ui/Button';
-import { roomTypeValues } from '@/lib/schemas/listing';
+import Chip from '@/components/ui/Chip';
+import IntentFilter from './filters/IntentFilter';
+import BhkFilter from './filters/BhkFilter';
+import OccupancyFilter from './filters/OccupancyFilter';
+import PriceRangeFilter from './filters/PriceRangeFilter';
+import AvailabilityFilter from './filters/AvailabilityFilter';
+import PreferredTenantsFilter from './filters/PreferredTenantsFilter';
+import FurnishingFilter from './filters/FurnishingFilter';
+import PropertyTypeFilter from './filters/PropertyTypeFilter';
+import GenderFilter from './filters/GenderFilter';
 
-const ROOM_TYPES = [
-  { value: '', label: 'All Types' },
-  ...roomTypeValues.map((value) => ({
-    value,
-    label:
-      value === 'multiple'
-        ? 'Multiple'
-        : value.endsWith('bhk')
-          ? value.toUpperCase()
-          : value[0]!.toUpperCase() + value.slice(1),
-  })),
+const FILTER_PARAMS = [
+  'intent', 'roomType', 'minPrice', 'maxPrice', 'availability', 'preferredTenants',
+  'furnishing', 'propertyType', 'genderPref', 'foodIncluded',
 ];
 
-const PROPERTY_TYPES = [
-  { value: '', label: 'All Properties' },
-  { value: 'pg', label: 'PG' },
-  { value: 'hostel', label: 'Hostel' },
-  { value: 'apartment', label: 'Apartment' },
-  { value: 'flat', label: 'Flat' },
-];
+function countActiveFilters(searchParams: ReturnType<typeof useSearchParams>): number {
+  let count = 0;
+  if (searchParams.get('intent')) count++;
+  if (searchParams.getAll('roomType').length > 0) count++;
+  if (searchParams.get('minPrice') || searchParams.get('maxPrice')) count++;
+  const avail = searchParams.get('availability');
+  if (avail && avail !== 'any') count++;
+  const tenants = searchParams.getAll('preferredTenants');
+  if (tenants.length > 0 && !(tenants.length === 1 && tenants[0] === 'any')) count++;
+  if (searchParams.getAll('furnishing').length > 0) count++;
+  if (searchParams.getAll('propertyType').length > 0) count++;
+  const gender = searchParams.get('genderPref');
+  if (gender && gender !== 'any') count++;
+  if (searchParams.get('foodIncluded') === 'true') count++;
+  return count;
+}
 
-const INTENT_OPTIONS = [
-  { value: '', label: 'All Listings' },
-  { value: 'rent', label: 'For Rent' },
-  { value: 'buy', label: 'For Sale' },
-];
-
-export default function ListingFilters() {
+function FilterHeader({ activeCount }: { activeCount: number }) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const handleChange = (key: string, value: string) => {
+  function reset() {
     const params = new URLSearchParams(searchParams.toString());
-    if (value) params.set(key, value);
-    else params.delete(key);
-    router.push(`/listings?${params.toString()}`);
-  };
+    FILTER_PARAMS.forEach(k => params.delete(k));
+    router.replace(`/listings?${params.toString()}`);
+  }
 
   return (
-    <aside className="w-full md:w-64 space-y-6">
-      <div>
-        <label className="font-mono text-xs uppercase tracking-[0.1em] text-muted-foreground mb-2 block">
-          Listing Intent
-        </label>
-        <div className="space-y-1">
-          {INTENT_OPTIONS.map(({ value, label }) => (
-            <button
-              key={value}
-              type="button"
-              onClick={() => handleChange('intent', value)}
-              className={`w-full text-left px-3 py-2 rounded font-sans text-sm transition-colors ${
-                searchParams.get('intent') === value ||
-                (!searchParams.get('intent') && !value)
-                  ? 'bg-accent text-accent-foreground'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      </div>
+    <div className="flex items-center justify-between mb-6">
+      <span className="font-mono text-xs uppercase tracking-[0.1em] text-foreground font-semibold">
+        Filters{activeCount > 0 ? ` (${activeCount})` : ''}
+      </span>
+      {activeCount > 0 && (
+        <button
+          type="button"
+          onClick={reset}
+          className="font-sans text-xs text-muted-foreground hover:text-foreground transition-colors"
+        >
+          Reset
+        </button>
+      )}
+    </div>
+  );
+}
 
-      <div>
-        <label className="font-mono text-xs uppercase tracking-[0.1em] text-muted-foreground mb-2 block">
-          Price Range (₹)
-        </label>
-        <div className="flex gap-2">
-          <Input
-            placeholder="Min"
-            type="number"
-            defaultValue={searchParams.get('price_min') ?? ''}
-            onBlur={e => handleChange('price_min', e.target.value)}
-            className="text-sm h-10"
-          />
-          <Input
-            placeholder="Max"
-            type="number"
-            defaultValue={searchParams.get('price_max') ?? ''}
-            onBlur={e => handleChange('price_max', e.target.value)}
-            className="text-sm h-10"
-          />
-        </div>
-      </div>
+function FoodIncludedFilter() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const active = searchParams.get('foodIncluded') === 'true';
 
-      <div>
-        <label className="font-mono text-xs uppercase tracking-[0.1em] text-muted-foreground mb-2 block">
-          Room Type
-        </label>
-        <div className="space-y-1">
-          {ROOM_TYPES.map(({ value, label }) => (
-            <button
-              key={value}
-              type="button"
-              onClick={() => handleChange('room_type', value)}
-              className={`w-full text-left px-3 py-2 rounded font-sans text-sm transition-colors ${
-                searchParams.get('room_type') === value ||
-                (!searchParams.get('room_type') && !value)
-                  ? 'bg-accent text-accent-foreground'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      </div>
+  function toggle() {
+    const params = new URLSearchParams(searchParams.toString());
+    if (active) params.delete('foodIncluded');
+    else params.set('foodIncluded', 'true');
+    router.replace(`/listings?${params.toString()}`);
+  }
 
-      <div>
-        <label className="font-mono text-xs uppercase tracking-[0.1em] text-muted-foreground mb-2 block">
-          Property Type
-        </label>
-        <div className="space-y-1">
-          {PROPERTY_TYPES.map(({ value, label }) => (
-            <button
-              key={value}
-              type="button"
-              onClick={() => handleChange('property_type', value)}
-              className={`w-full text-left px-3 py-2 rounded font-sans text-sm transition-colors ${
-                searchParams.get('property_type') === value || (!searchParams.get('property_type') && !value)
-                  ? 'bg-accent text-accent-foreground'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      </div>
+  return (
+    <div>
+      <p className="font-mono text-xs uppercase tracking-[0.1em] text-muted-foreground mb-2">
+        Meals
+      </p>
+      <Chip label="Food Included" active={active} onClick={toggle} />
+    </div>
+  );
+}
 
-      <div>
-        <label className="font-mono text-xs uppercase tracking-[0.1em] text-muted-foreground mb-2 block">
-          Gender Preference
-        </label>
-        <div className="space-y-1">
-          {[
-            { value: '', label: 'Any' },
-            { value: 'male', label: 'Male Only' },
-            { value: 'female', label: 'Female Only' },
-          ].map(({ value, label }) => (
-            <button
-              key={value}
-              type="button"
-              onClick={() => handleChange('gender', value)}
-              className={`w-full text-left px-3 py-2 rounded font-sans text-sm transition-colors ${
-                searchParams.get('gender') === value
-                  ? 'bg-accent text-accent-foreground'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      </div>
+export default function ListingFilters() {
+  const searchParams = useSearchParams();
+  const intent = searchParams.get('intent');
+  const propertyTypes = searchParams.getAll('propertyType');
+  const activeCount = countActiveFilters(searchParams);
 
-      <div>
-        <label className="flex items-center gap-2 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={searchParams.get('food_included') === 'true'}
-            onChange={e => handleChange('food_included', e.target.checked ? 'true' : '')}
-            className="accent-accent w-4 h-4"
-          />
-          <span className="font-sans text-sm">Food Included</span>
-        </label>
-      </div>
+  const showBhk =
+    intent === 'buy' ||
+    propertyTypes.some(t => t === 'apartment' || t === 'flat');
 
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => router.push('/listings')}
-        className="w-full"
-      >
-        Clear Filters
-      </Button>
+  const showOccupancy =
+    intent !== 'buy' &&
+    propertyTypes.some(t => t === 'pg' || t === 'hostel');
+
+  return (
+    <aside className="w-full md:w-56 shrink-0 space-y-6">
+      <FilterHeader activeCount={activeCount} />
+      <IntentFilter />
+      <PropertyTypeFilter />
+      {showBhk && <BhkFilter />}
+      {showOccupancy && <OccupancyFilter />}
+      <PriceRangeFilter />
+      <AvailabilityFilter />
+      <FurnishingFilter />
+      <PreferredTenantsFilter />
+      <GenderFilter />
+      <FoodIncludedFilter />
     </aside>
   );
 }

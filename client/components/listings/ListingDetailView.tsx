@@ -192,7 +192,9 @@ export default function ListingDetailView({ listing, user, apiBase }: ListingDet
             {listing.intent === 'rent' && listing.localityId && (
               <RentEstimator localityId={listing.localityId} apiBase={apiBase} />
             )}
-            <EMICalculator defaultPrincipal={listing.intent === 'buy' ? listing.price : listing.price * 12} />
+            {listing.intent === 'buy' && (
+              <EMICalculator defaultPrincipal={listing.price} />
+            )}
           </div>
         </div>
       </div>

@@ -22,11 +22,15 @@ export interface SearchFilterInput {
   localityIds?: number[];
   intent?: ListingIntent;
   roomType?: RoomType | RoomType[];
-  propertyType?: PropertyType;
+  propertyType?: PropertyType | PropertyType[];
   foodIncluded?: 'true' | 'false';
   gender?: GenderPref;
   priceMin?: number;
   priceMax?: number;
+  /** 'now' = available today, 'soon' = within 30 days, 'any' = no filter */
+  availability?: 'now' | 'soon' | 'any';
+  preferredTenants?: string[];
+  furnishing?: string[];
 }
 
 export function escapeFilterValue(value: string): string {
@@ -65,19 +69,25 @@ export function buildSearchFilters(input: SearchFilterInput): string[] {
   }
 
   // Product rule: buy intent is restricted to apartment/flat only
-  if (input.intent === 'buy') {
-    const effectivePropertyType =
-      input.propertyType && BUY_ALLOWED_PROPERTY_TYPES.includes(input.propertyType)
-        ? input.propertyType
-        : null;
+  const propTypes = input.propertyType
+    ? (Array.isArray(input.propertyType) ? input.propertyType : [input.propertyType])
+    : [];
 
-    if (effectivePropertyType) {
-      filters.push(`property_type = "${effectivePropertyType}"`);
+  if (input.intent === 'buy') {
+    const allowed = propTypes.filter(pt => BUY_ALLOWED_PROPERTY_TYPES.includes(pt));
+    if (allowed.length === 1) {
+      filters.push(`property_type = "${allowed[0]}"`);
+    } else if (allowed.length > 1) {
+      const parts = allowed.map(pt => `property_type = "${pt}"`).join(' OR ');
+      filters.push(`(${parts})`);
     } else {
       filters.push('(property_type = "apartment" OR property_type = "flat")');
     }
-  } else if (input.propertyType) {
-    filters.push(`property_type = "${input.propertyType}"`);
+  } else if (propTypes.length === 1) {
+    filters.push(`property_type = "${propTypes[0]}"`);
+  } else if (propTypes.length > 1) {
+    const parts = propTypes.map(pt => `property_type = "${pt}"`).join(' OR ');
+    filters.push(`(${parts})`);
   }
 
   // Room type: supports single value or array
@@ -92,9 +102,37 @@ export function buildSearchFilters(input: SearchFilterInput): string[] {
   }
 
   if (input.foodIncluded === 'true') filters.push('food_included = true');
-  if (input.gender) filters.push(`(gender_pref = "${input.gender}" OR gender_pref = "any")`);
+  if (input.gender && input.gender !== 'any') filters.push(`(gender_pref = "${input.gender}" OR gender_pref = "any")`);
   if (input.priceMin !== undefined) filters.push(`price >= ${input.priceMin}`);
   if (input.priceMax !== undefined) filters.push(`price <= ${input.priceMax}`);
+
+  // Availability filter (available_from_ts: 0 = immediately available)
+  if (input.availability === 'now') {
+    const nowTs = Math.floor(Date.now() / 1000);
+    filters.push(`available_from_ts <= ${nowTs}`);
+  } else if (input.availability === 'soon') {
+    const soonTs = Math.floor((Date.now() + 30 * 24 * 3600 * 1000) / 1000);
+    filters.push(`available_from_ts <= ${soonTs}`);
+  }
+
+  // Preferred tenants filter: include listings that accept ANY of the selected types, or "any"
+  if (input.preferredTenants && input.preferredTenants.length > 0) {
+    const nonAny = input.preferredTenants.filter(t => t !== 'any');
+    if (nonAny.length > 0) {
+      const parts = [...nonAny, 'any'].map(t => `preferred_tenants = "${t}"`).join(' OR ');
+      filters.push(`(${parts})`);
+    }
+  }
+
+  // Furnishing filter: show listings matching any selected furnishing type
+  if (input.furnishing && input.furnishing.length > 0) {
+    if (input.furnishing.length === 1) {
+      filters.push(`furnishing = "${input.furnishing[0]}"`);
+    } else {
+      const parts = input.furnishing.map(f => `furnishing = "${f}"`).join(' OR ');
+      filters.push(`(${parts})`);
+    }
+  }
 
   return filters;
 }

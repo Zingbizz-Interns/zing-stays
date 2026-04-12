@@ -10,6 +10,8 @@ import { registerSchema, type RegisterInput } from '@/lib/schemas/auth';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
 
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+
 export default function RegisterPage() {
   const { login } = useAuth();
   const router = useRouter();
@@ -33,7 +35,7 @@ export default function RegisterPage() {
         throw new Error(result.error.message || 'Registration failed');
       }
       login({} as never);
-      router.replace('/dashboard');
+      router.replace('/');
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Registration failed');
     } finally {
@@ -105,7 +107,7 @@ export default function RegisterPage() {
             try {
               const result = await authClient.signIn.social({
                 provider: 'google',
-                callbackURL: '/dashboard',
+                callbackURL: `${APP_URL}/`,
               });
               if (result.error) {
                 throw new Error(result.error.message || 'Google sign-in failed');

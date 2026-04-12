@@ -5,26 +5,10 @@ import { buildSearchFilters, normalizeSortField } from '../lib/searchFilters';
 import { searchLimiter } from '../middleware/rateLimit';
 import { logger } from '../lib/logger';
 import { roomTypeValues } from '../lib/listingFields';
+import { toIntArray, toStringArray } from '../lib/routeUtils';
 
 const router = Router();
 
-// Normalize a query param that may be single or repeated to an array of positive integers
-function toIntArray(val: unknown): number[] | undefined {
-  if (val === undefined || val === null) return undefined;
-  const arr = Array.isArray(val) ? val : [val];
-  const nums = arr
-    .map(v => Number(v))
-    .filter(n => !isNaN(n) && n > 0 && Number.isInteger(n));
-  return nums.length > 0 ? nums : undefined;
-}
-
-// Normalize a query param that may be single or repeated to a string array
-function toStringArray(val: unknown): string[] | undefined {
-  if (val === undefined || val === null) return undefined;
-  const arr = Array.isArray(val) ? val : [val];
-  const strs = arr.filter((s): s is string => typeof s === 'string' && s.length > 0);
-  return strs.length > 0 ? strs : undefined;
-}
 
 const searchQuerySchema = z.object({
   q: z.string().max(200).default(''),
@@ -37,9 +21,17 @@ const searchQuerySchema = z.object({
   room_type: z.enum(roomTypeValues).optional(),
   property_type: z.enum(['pg', 'hostel', 'apartment', 'flat']).optional(),
   food_included: z.enum(['true', 'false']).optional(),
+  foodIncluded: z.enum(['true', 'false']).optional(),
   gender: z.enum(['male', 'female', 'any']).optional(),
+  genderPref: z.enum(['male', 'female', 'any']).optional(),
+  // Legacy price params
   price_min: z.coerce.number().int().positive().optional(),
   price_max: z.coerce.number().int().positive().optional(),
+  // New price params
+  minPrice: z.coerce.number().int().positive().optional(),
+  maxPrice: z.coerce.number().int().positive().optional(),
+  // New filter params
+  availability: z.enum(['now', 'soon', 'any']).optional(),
   sort: z.string().optional().transform((value) => normalizeSortField(value)),
 });
 
@@ -60,9 +52,14 @@ router.get('/', searchLimiter, async (req, res) => {
     room_type,
     property_type,
     food_included,
+    foodIncluded,
     gender,
+    genderPref,
     price_min,
     price_max,
+    minPrice,
+    maxPrice,
+    availability,
     sort,
   } = parsed.data;
 
@@ -85,6 +82,34 @@ router.get('/', searchLimiter, async (req, res) => {
       ? [room_type]
       : undefined;
 
+  // Multi-value propertyType (Phase 5 filter panel sends array)
+  const rawPropertyTypes = toStringArray(req.query['propertyType']);
+  const validPropertyTypes = rawPropertyTypes?.filter(
+    (pt): pt is 'pg' | 'hostel' | 'apartment' | 'flat' =>
+      ['pg', 'hostel', 'apartment', 'flat'].includes(pt),
+  );
+  // Fall back to legacy property_type single param
+  const effectivePropertyTypes =
+    validPropertyTypes && validPropertyTypes.length > 0
+      ? validPropertyTypes
+      : property_type
+        ? [property_type]
+        : undefined;
+
+  // New multi-value params (Phase 5) — constrained to schema enum values
+  const VALID_PREFERRED_TENANTS = ['students', 'working', 'family', 'any'] as const;
+  const VALID_FURNISHING = ['furnished', 'semi', 'unfurnished'] as const;
+
+  const rawPreferredTenants = toStringArray(req.query['preferredTenants']);
+  const preferredTenants = rawPreferredTenants?.filter((t): t is typeof VALID_PREFERRED_TENANTS[number] =>
+    (VALID_PREFERRED_TENANTS as readonly string[]).includes(t),
+  );
+
+  const rawFurnishing = toStringArray(req.query['furnishing']);
+  const furnishing = rawFurnishing?.filter((f): f is typeof VALID_FURNISHING[number] =>
+    (VALID_FURNISHING as readonly string[]).includes(f),
+  );
+
   const filters = buildSearchFilters({
     city,
     locality,
@@ -92,11 +117,14 @@ router.get('/', searchLimiter, async (req, res) => {
     localityIds: resolvedLocalityIds,
     intent,
     roomType: effectiveRoomType as (typeof roomTypeValues)[number][] | undefined,
-    propertyType: property_type,
-    foodIncluded: food_included,
-    gender,
-    priceMin: price_min,
-    priceMax: price_max,
+    propertyType: effectivePropertyTypes,
+    foodIncluded: foodIncluded ?? food_included,
+    gender: genderPref ?? gender,
+    priceMin: minPrice ?? price_min,
+    priceMax: maxPrice ?? price_max,
+    availability,
+    preferredTenants,
+    furnishing,
   });
 
   try {
