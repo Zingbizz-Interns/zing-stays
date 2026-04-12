@@ -31,6 +31,6 @@ export async function requireServerUser(): Promise<ServerAuthUser | null> {
     return null;
   }
 
-  const data = await res.json() as { user?: ServerAuthUser | null };
-  return data.user ?? null;
+  const data = await res.json() as { user?: ServerAuthUser | null } | null;
+  return data?.user ?? null;
 }

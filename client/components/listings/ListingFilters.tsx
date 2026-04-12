@@ -44,7 +44,7 @@ function FilterHeader({ activeCount }: { activeCount: number }) {
   }
 
   return (
-    <div className="flex items-center justify-between mb-6">
+    <div className="flex items-center justify-between mb-5 pb-3 border-b border-border">
       <span className="font-mono text-xs uppercase tracking-[0.1em] text-foreground font-semibold">
         Filters{activeCount > 0 ? ` (${activeCount})` : ''}
       </span>
@@ -52,9 +52,9 @@ function FilterHeader({ activeCount }: { activeCount: number }) {
         <button
           type="button"
           onClick={reset}
-          className="font-sans text-xs text-muted-foreground hover:text-foreground transition-colors"
+          className="font-sans text-xs text-accent hover:text-accent-secondary transition-colors font-medium"
         >
-          Reset
+          Reset all
         </button>
       )}
     </div>
@@ -83,6 +83,10 @@ function FoodIncludedFilter() {
   );
 }
 
+function FilterDivider() {
+  return <div className="border-b border-border/50" />;
+}
+
 export default function ListingFilters() {
   const searchParams = useSearchParams();
   const intent = searchParams.get('intent');
@@ -98,18 +102,27 @@ export default function ListingFilters() {
     propertyTypes.some(t => t === 'pg' || t === 'hostel');
 
   return (
-    <aside className="w-full md:w-56 shrink-0 space-y-6">
-      <FilterHeader activeCount={activeCount} />
-      <IntentFilter />
-      <PropertyTypeFilter />
-      {showBhk && <BhkFilter />}
-      {showOccupancy && <OccupancyFilter />}
-      <PriceRangeFilter />
-      <AvailabilityFilter />
-      <FurnishingFilter />
-      <PreferredTenantsFilter />
-      <GenderFilter />
-      <FoodIncludedFilter />
+    <aside className="w-full md:w-64 shrink-0">
+      <div className="bg-card border border-border rounded-xl p-5 space-y-5 sticky top-20">
+        <FilterHeader activeCount={activeCount} />
+        <IntentFilter />
+        <FilterDivider />
+        <PropertyTypeFilter />
+        {showBhk && <><FilterDivider /><BhkFilter /></>}
+        {showOccupancy && <><FilterDivider /><OccupancyFilter /></>}
+        <FilterDivider />
+        <PriceRangeFilter />
+        <FilterDivider />
+        <AvailabilityFilter />
+        <FilterDivider />
+        <FurnishingFilter />
+        <FilterDivider />
+        <PreferredTenantsFilter />
+        <FilterDivider />
+        <GenderFilter />
+        <FilterDivider />
+        <FoodIncludedFilter />
+      </div>
     </aside>
   );
 }

@@ -143,8 +143,8 @@ function ListingsContent() {
       <div className="min-w-0 flex-1">
         {isPending && (
           <div className="space-y-6">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="h-[32rem] rounded-lg bg-muted animate-pulse" />
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="h-80 rounded-xl bg-muted animate-pulse" />
             ))}
           </div>
         )}
@@ -173,10 +173,10 @@ function ListingsContent() {
 
 export default function ListingsPage() {
   return (
-    <div className="mx-auto max-w-[82rem] px-6 py-12">
-      <div className="mb-10">
+    <div className="mx-auto max-w-[82rem] px-6 py-8">
+      <div className="mb-6">
         <SectionLabel>Browse Rooms</SectionLabel>
-        <h1 className="font-display text-4xl mb-6">Available Rooms</h1>
+        <h1 className="font-display text-3xl md:text-4xl mb-4">Available Rooms</h1>
         <ListingsTopBar />
       </div>
       <Suspense fallback={<div className="animate-pulse h-96 bg-muted rounded-lg" />}>

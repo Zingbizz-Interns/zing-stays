@@ -167,7 +167,7 @@ export default function ListingsTopBar({
   };
 
   return (
-    <div className="rounded-xl border border-border bg-card shadow-sm p-6">
+    <div className="rounded-2xl border border-border bg-card shadow-md p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex gap-2">
           {(['rent', 'buy'] as const).map(tab => (

@@ -44,7 +44,12 @@ export default function ContactButton({
 
   if (isOwner) {
     return (
-      <p className={cn('font-mono text-xs text-muted-foreground uppercase tracking-wide', className)}>
+      <p
+        className={cn(
+          'flex min-h-[44px] w-full items-center justify-center rounded-lg border border-accent/20 bg-accent/10 px-4 py-2 text-center font-mono text-xs font-semibold uppercase tracking-[0.16em] text-accent',
+          className,
+        )}
+      >
         Your listing
       </p>
     );

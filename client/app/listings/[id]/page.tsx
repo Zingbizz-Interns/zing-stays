@@ -1,4 +1,4 @@
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import ListingDetailView, { type ListingDetailData } from '@/components/listings/ListingDetailView';
 import { requireServerUser } from '@/lib/server-auth';
 import { cookies } from 'next/headers';
@@ -23,10 +23,14 @@ export default async function ListingDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const authUser = await requireServerUser();
+
+  if (!authUser) {
+    redirect(`/auth/login?redirect=${encodeURIComponent(`/listings/${id}`)}`);
+  }
+
   const listing = await getListing(id);
   if (!listing) notFound();
-
-  const authUser = await requireServerUser();
 
   return (
     <ListingDetailView
