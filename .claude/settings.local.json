@@ -45,7 +45,8 @@
       "Bash(gh pr create --title 'feat: Phase 2 — Schema cleanup & foundation' --body ':*)",
       "Bash(where gh:*)",
       "Bash(winget list:*)",
-      "Bash(gh pr create --title 'feat: Phase 3 — Authentication Redesign' --body ':*)"
+      "Bash(gh pr create --title 'feat: Phase 3 — Authentication Redesign' --body ':*)",
+      "Bash(grep -n \"NEXT_PUBLIC_API_URL\\\\|MEILISEARCH\" /d/Developer/zingBizz/zingbrokers/client/.env*)"
     ]
   }
 }
