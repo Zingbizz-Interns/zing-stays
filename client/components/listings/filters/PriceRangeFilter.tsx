@@ -63,6 +63,7 @@ function PriceRangeSlider({ initialMin, initialMax }: { initialMin: number; init
           min={MIN}
           max={MAX}
           step={STEP}
+          aria-label="Minimum price"
           value={minVal}
           onChange={e => {
             const v = Math.min(Number(e.target.value), maxVal - STEP);
@@ -79,6 +80,7 @@ function PriceRangeSlider({ initialMin, initialMax }: { initialMin: number; init
           min={MIN}
           max={MAX}
           step={STEP}
+          aria-label="Maximum price"
           value={maxVal}
           onChange={e => {
             const v = Math.max(Number(e.target.value), minVal + STEP);

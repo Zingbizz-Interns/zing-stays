@@ -122,6 +122,7 @@ export default function ImageUploader({ images, onChange }: ImageUploaderProps) 
         accept="image/*"
         multiple
         className="hidden"
+        aria-label="Upload images"
         onChange={e => e.target.files && handleFiles(e.target.files)}
       />
       {error && <p className="font-sans text-xs text-red-600">{error}</p>}

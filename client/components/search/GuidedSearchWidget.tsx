@@ -181,8 +181,8 @@ export default function GuidedSearchWidget() {
 
   const loadRecentSearch = (search: RecentSearch) => {
     setIntent(search.intent);
-    if (search.city) setSelectedCity(cities.find(c => c.id === search.city?.id) || search.city);
-    setSelectedLocalities(search.localities);
+    if (search.city) setSelectedCity(cities.find(c => c.id === search.city?.id) || { ...search.city, slug: '' });
+    setSelectedLocalities(search.localities.map(l => ({ ...l, slug: '' })));
     setSelectedPropertyType(search.propertyType || '');
     setSelectedRoomTypes(search.roomTypes || []);
     setShowLocalityDropdown(false);

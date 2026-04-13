@@ -105,7 +105,7 @@ function renderMarkdown(md: string): string {
         return `<h2 class="font-display text-2xl mt-8 mb-3">${renderInline(block.slice(3))}</h2>`;
       }
       if (block.startsWith('# ')) {
-        return `<h1 class="font-display text-3xl mt-8 mb-4">${renderInline(block.slice(2))}</h1>`;
+        return `<h2 class="font-display text-3xl mt-8 mb-4">${renderInline(block.slice(2))}</h2>`;
       }
 
       const paragraph = block
