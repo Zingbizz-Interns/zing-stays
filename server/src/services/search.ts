@@ -11,7 +11,36 @@ export const searchClient = new Meilisearch({
 
 export const listingsIndex = searchClient.index('listings');
 
+function isIndexNotFoundError(err: unknown): boolean {
+  if (!err || typeof err !== 'object') return false;
+  return 'code' in err && err.code === 'index_not_found';
+}
+
+async function ensureListingsIndexExists(): Promise<void> {
+  try {
+    const index = await searchClient.getIndex('listings');
+    if (index.primaryKey === 'id') {
+      return;
+    }
+
+    const deleteTask = await searchClient.deleteIndex('listings');
+    await searchClient.tasks.waitForTask(deleteTask.taskUid, { timeout: 30_000 });
+
+    const createTask = await searchClient.createIndex('listings', { primaryKey: 'id' });
+    await searchClient.tasks.waitForTask(createTask.taskUid, { timeout: 30_000 });
+  } catch (err) {
+    if (!isIndexNotFoundError(err)) {
+      throw err;
+    }
+
+    const createTask = await searchClient.createIndex('listings', { primaryKey: 'id' });
+    await searchClient.tasks.waitForTask(createTask.taskUid, { timeout: 30_000 });
+  }
+}
+
 export async function setupSearchIndex(): Promise<void> {
+  await ensureListingsIndexExists();
+
   const task = await listingsIndex.updateSettings({
     searchableAttributes: ['title', 'landmark', 'locality', 'city', 'description', 'amenities'],
     filterableAttributes: [
@@ -66,11 +95,15 @@ export interface SearchDoc {
 }
 
 export async function indexListing(doc: SearchDoc): Promise<void> {
-  await listingsIndex.addDocuments([doc]);
+  await ensureListingsIndexExists();
+  const task = await listingsIndex.addDocuments([doc]);
+  await searchClient.tasks.waitForTask(task.taskUid, { timeout: 30_000 });
 }
 
 export async function removeListing(id: number): Promise<void> {
-  await listingsIndex.deleteDocument(id);
+  await ensureListingsIndexExists();
+  const task = await listingsIndex.deleteDocument(id);
+  await searchClient.tasks.waitForTask(task.taskUid, { timeout: 30_000 });
 }
 
 async function fetchSearchDocs(whereClause?: ReturnType<typeof eq>): Promise<SearchDoc[]> {
@@ -148,9 +181,12 @@ export async function getSearchDocByListingId(listingId: number): Promise<Search
 
 /** Re-index all active listings. Called once on server boot via the search index worker. */
 export async function reindexAllListings(): Promise<void> {
+  await ensureListingsIndexExists();
+
   const docs = await fetchSearchDocs(eq(listings.status, 'active'));
 
-  await listingsIndex.deleteAllDocuments();
+  const deleteTask = await listingsIndex.deleteAllDocuments();
+  await searchClient.tasks.waitForTask(deleteTask.taskUid, { timeout: 30_000 });
 
   if (docs.length === 0) {
     logger.info('reindexAllListings: cleared index; no active listings found');
@@ -160,7 +196,8 @@ export async function reindexAllListings(): Promise<void> {
   // Meilisearch supports up to 1000 docs per batch
   const BATCH = 500;
   for (let i = 0; i < docs.length; i += BATCH) {
-    await listingsIndex.addDocuments(docs.slice(i, i + BATCH));
+    const task = await listingsIndex.addDocuments(docs.slice(i, i + BATCH));
+    await searchClient.tasks.waitForTask(task.taskUid, { timeout: 30_000 });
   }
-  logger.info(`reindexAllListings: queued ${docs.length} documents`);
+  logger.info(`reindexAllListings: indexed ${docs.length} documents`);
 }

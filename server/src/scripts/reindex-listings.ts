@@ -1,8 +1,9 @@
 import 'dotenv/config';
-import { reindexAllListings } from '../services/search';
+import { reindexAllListings, setupSearchIndex } from '../services/search';
 
 async function main() {
   console.log('Re-indexing all active listings with joined location fields...');
+  await setupSearchIndex();
   await reindexAllListings();
 }
 
