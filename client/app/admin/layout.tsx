@@ -1,16 +1,7 @@
-import { redirect } from 'next/navigation';
-import { requireServerUser } from '@/lib/server-auth';
+ 'use client';
 
-export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  const user = await requireServerUser();
+import AuthGate from '@/components/auth/AuthGate';
 
-  if (!user) {
-    redirect('/auth');
-  }
-
-  if (!user.isAdmin) {
-    redirect('/');
-  }
-
-  return children;
+export default function AdminLayout({ children }: { children: React.ReactNode }) {
+  return <AuthGate requireAdmin>{children}</AuthGate>;
 }
