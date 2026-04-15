@@ -5,8 +5,7 @@ import { Suspense } from 'react';
 import QueryProvider from '@/components/providers/QueryProvider';
 import AuthProvider from '@/components/providers/AuthProvider';
 import { PHProvider } from '@/components/providers/PostHogProvider';
-import Navbar from '@/components/layout/Navbar';
-import Footer from '@/components/layout/Footer';
+import AppChrome from '@/components/layout/AppChrome';
 
 const playfair = Playfair_Display({
   subsets: ['latin'],
@@ -40,9 +39,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <AuthProvider>
             <PHProvider>
               <Suspense>
-                <Navbar />
-                <main>{children}</main>
-                <Footer />
+                <AppChrome>{children}</AppChrome>
               </Suspense>
             </PHProvider>
           </AuthProvider>
