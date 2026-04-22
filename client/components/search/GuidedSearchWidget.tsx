@@ -229,8 +229,8 @@ export default function GuidedSearchWidget() {
 
   return (
     <div className="w-full max-w-[800px] mx-auto z-50 relative">
-      {/* ─── Intent Tabs (Premium Airbnb Style) ─── */}
-      <div className="flex justify-center mb-0 sm:justify-start sm:ml-4">
+      {/* ─── Intent Tabs ─── */}
+      <div className="flex justify-start mb-0">
         <div className="flex bg-card/90 backdrop-blur-sm rounded-t-xl px-2 pt-2 border-x border-t border-border/80 shadow-md">
           {(['rent', 'buy'] as const).map(tab => (
             <button

@@ -20,6 +20,7 @@ import CompletenessBar from './CompletenessBar';
 import BasicDetailsSection from '@/components/forms/listing-form/BasicDetailsSection';
 import PropertyDetailsSection from '@/components/forms/listing-form/PropertyDetailsSection';
 import AmenitiesSection from '@/components/forms/listing-form/AmenitiesSection';
+import ListingSetupSection from '@/components/forms/listing-form/ListingSetupSection';
 import type { CityOption, LocalityOption, RoomTypeOption } from '@/components/forms/listing-form/shared';
 import { calculateListingCompleteness } from '@/lib/listingCompleteness';
 import PosterVerificationModal from '@/components/auth/PosterVerificationModal';
@@ -47,7 +48,10 @@ export default function ListingForm({ initialData, listingId: listingIdProp, isP
   const [savedDraftId, setSavedDraftId] = useState<number | null>(null);
   const [showVerifyModal, setShowVerifyModal] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  const [setupComplete, setSetupComplete] = useState(Boolean(listingIdProp));
+  const [setupContinuing, setSetupContinuing] = useState(false);
   const listingId = listingIdProp ?? savedDraftId ?? undefined;
+  const isExistingListing = Boolean(listingId);
   const defaultValues = useMemo<Partial<ListingFormValues>>(() => {
     const normalizedInitialData: Partial<ListingFormValues> = {
       ...initialData,
@@ -89,6 +93,7 @@ export default function ListingForm({ initialData, listingId: listingIdProp, isP
     reset,
     resetField,
     setValue,
+    trigger,
     formState: { errors, isSubmitting },
   } = useForm<ListingFormValues, unknown, ListingInput>({
     resolver: zodResolver(listingSchema),
@@ -97,6 +102,8 @@ export default function ListingForm({ initialData, listingId: listingIdProp, isP
 
   const watchedCityId = useWatch({ control, name: 'cityId' });
   const cityId = typeof watchedCityId === 'number' ? watchedCityId : undefined;
+  const watchedIntent = useWatch({ control, name: 'intent' });
+  const intent = watchedIntent === 'buy' ? 'buy' : 'rent';
   const watchedPropertyType = useWatch({ control, name: 'propertyType' });
   const propertyType =
     typeof watchedPropertyType === 'string'
@@ -117,6 +124,7 @@ export default function ListingForm({ initialData, listingId: listingIdProp, isP
     queryKey: ['cities'],
     queryFn: () => api.get<{ data: CityOption[] }>('/cities').then((res) => res.data),
   });
+  const cityName = cityOptions.find((city) => city.id === cityId)?.name;
 
   const { data: localityOptions = [] } = useQuery({
     queryKey: ['localities', cityId],
@@ -129,6 +137,12 @@ export default function ListingForm({ initialData, listingId: listingIdProp, isP
   }, [defaultValues, reset]);
 
   useEffect(() => {
+    if (listingIdProp) {
+      setSetupComplete(true);
+    }
+  }, [listingIdProp]);
+
+  useEffect(() => {
     if (!propertyType) {
       return;
     }
@@ -138,6 +152,16 @@ export default function ListingForm({ initialData, listingId: listingIdProp, isP
       resetField('roomType');
     }
   }, [formValues.roomType, propertyType, resetField, roomTypeOptions]);
+
+  useEffect(() => {
+    if (intent === 'buy') {
+      setValue('deposit', undefined);
+      setValue('availableFrom', undefined);
+      setValue('preferredTenants', 'any');
+      setValue('foodIncluded', false);
+      setValue('genderPref', 'any');
+    }
+  }, [intent, setValue]);
 
   const onSubmit = async (data: ListingInput) => {
     setServerError(null);
@@ -171,6 +195,15 @@ export default function ListingForm({ initialData, listingId: listingIdProp, isP
     }
   };
 
+  const handleContinueFromSetup = async () => {
+    setSetupContinuing(true);
+    const isValid = await trigger(['intent', 'cityId', 'propertyType']);
+    if (isValid) {
+      setSetupComplete(true);
+    }
+    setSetupContinuing(false);
+  };
+
   return (
     <>
       {showVerifyModal && (
@@ -183,9 +216,48 @@ export default function ListingForm({ initialData, listingId: listingIdProp, isP
         />
       )}
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-12 max-w-2xl">
+        {setupComplete && (
+          <>
+            <input type="hidden" {...register('intent')} />
+            <input type="hidden" {...register('cityId', { valueAsNumber: true })} />
+            <input type="hidden" {...register('propertyType')} />
+          </>
+        )}
         <CompletenessBar score={score} />
 
-        {!user?.isPosterVerified && (
+        {!setupComplete && !isExistingListing && (
+          <ListingSetupSection
+            control={control}
+            errors={errors}
+            cityOptions={cityOptions}
+            intent={intent}
+            onContinue={handleContinueFromSetup}
+            continuing={setupContinuing}
+            resetField={resetField}
+          />
+        )}
+
+        {setupComplete && (
+          <section className="rounded-2xl border border-border bg-card px-5 py-4">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="font-mono text-xs uppercase tracking-[0.1em] text-muted-foreground">Listing Setup</p>
+                <p className="mt-2 font-sans text-sm text-foreground">
+                  {intent === 'buy' ? 'For Sale' : 'For Rent'}
+                  {cityName ? ` in ${cityName}` : ''}
+                  {propertyType ? ` · ${propertyType[0].toUpperCase()}${propertyType.slice(1)}` : ''}
+                </p>
+              </div>
+              {!isExistingListing && (
+                <Button type="button" variant="ghost" size="sm" onClick={() => setSetupComplete(false)}>
+                  Change Setup
+                </Button>
+              )}
+            </div>
+          </section>
+        )}
+
+        {!user?.isPosterVerified && setupComplete && (
           <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 flex items-start gap-3">
             <span className="text-amber-500 mt-0.5 shrink-0">&#9888;</span>
             <div>
@@ -197,7 +269,7 @@ export default function ListingForm({ initialData, listingId: listingIdProp, isP
           </div>
         )}
 
-        {savedDraftId && (
+        {savedDraftId && setupComplete && (
           <div className="bg-emerald-50 border border-emerald-200 rounded-lg px-4 py-3">
             <p className="font-sans text-sm font-medium text-emerald-800">Draft saved successfully.</p>
             <p className="font-sans text-xs text-emerald-700 mt-0.5">
@@ -206,53 +278,57 @@ export default function ListingForm({ initialData, listingId: listingIdProp, isP
           </div>
         )}
 
-        <BasicDetailsSection
-          control={control}
-          register={register}
-          setValue={setValue}
-          errors={errors}
-          cityId={cityId}
-          cityOptions={cityOptions}
-          localityOptions={localityOptions}
-        />
-        <PropertyDetailsSection
-          register={register}
-          errors={errors}
-          propertyType={propertyType}
-          roomTypeOptions={roomTypeOptions}
-        />
+        {setupComplete && (
+          <>
+            <BasicDetailsSection
+              control={control}
+              register={register}
+              errors={errors}
+              intent={intent}
+              cityId={cityId}
+              localityOptions={localityOptions}
+            />
+            <PropertyDetailsSection
+              register={register}
+              errors={errors}
+              intent={intent}
+              propertyType={propertyType}
+              roomTypeOptions={roomTypeOptions}
+            />
 
-        <section>
-          <SectionLabel>Photos</SectionLabel>
-          <Controller
-            name="images"
-            control={control}
-            render={({ field }) => (
-              <ImageUploader images={field.value ?? []} onChange={field.onChange} />
-            )}
-          />
-        </section>
-        <AmenitiesSection control={control} register={register} errors={errors} />
+            <section>
+              <SectionLabel>Photos</SectionLabel>
+              <Controller
+                name="images"
+                control={control}
+                render={({ field }) => (
+                  <ImageUploader images={field.value ?? []} onChange={field.onChange} />
+                )}
+              />
+            </section>
+            <AmenitiesSection control={control} register={register} errors={errors} intent={intent} />
 
-        {serverError && <p className="font-sans text-sm text-red-600">{serverError}</p>}
-        <div className="flex gap-4 pt-4 border-t border-border">
-          <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? 'Saving...' : listingIdProp ? 'Save Changes' : 'Save Draft'}
-          </Button>
-          {(savedDraftId || (listingIdProp && !isPublished)) && (
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={handlePublish}
-              disabled={publishing}
-            >
-              {publishing ? 'Publishing...' : user?.isPosterVerified ? 'Publish Listing' : 'Publish (Verify First)'}
-            </Button>
-          )}
-          <Button type="button" variant="ghost" onClick={() => router.back()}>
-            Cancel
-          </Button>
-        </div>
+            {serverError && <p className="font-sans text-sm text-red-600">{serverError}</p>}
+            <div className="flex gap-4 pt-4 border-t border-border">
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting ? 'Saving...' : isExistingListing ? 'Save Changes' : 'Save Draft'}
+              </Button>
+              {((savedDraftId || listingIdProp) && !isPublished) && (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={handlePublish}
+                  disabled={publishing}
+                >
+                  {publishing ? 'Publishing...' : user?.isPosterVerified ? 'Publish Listing' : 'Publish (Verify First)'}
+                </Button>
+              )}
+              <Button type="button" variant="ghost" onClick={() => router.back()}>
+                Cancel
+              </Button>
+            </div>
+          </>
+        )}
       </form>
     </>
   );

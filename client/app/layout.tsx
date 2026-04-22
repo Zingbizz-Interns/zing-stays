@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { IBM_Plex_Mono, Playfair_Display, Source_Sans_3 } from 'next/font/google';
+import { Fraunces, Source_Serif_4, IBM_Plex_Sans, IBM_Plex_Mono } from 'next/font/google';
 import './globals.css';
 import { Suspense } from 'react';
 import QueryProvider from '@/components/providers/QueryProvider';
@@ -7,15 +7,22 @@ import AuthProvider from '@/components/providers/AuthProvider';
 import { PHProvider } from '@/components/providers/PostHogProvider';
 import AppChrome from '@/components/layout/AppChrome';
 
-const playfair = Playfair_Display({
+const fraunces = Fraunces({
   subsets: ['latin'],
-  variable: '--font-playfair',
+  variable: '--font-fraunces',
   display: 'swap',
 });
 
-const sourceSans = Source_Sans_3({
+const sourceSerif = Source_Serif_4({
   subsets: ['latin'],
-  variable: '--font-source-sans',
+  variable: '--font-source-serif',
+  display: 'swap',
+});
+
+const ibmSans = IBM_Plex_Sans({
+  subsets: ['latin'],
+  weight: ['400', '500', '600'],
+  variable: '--font-ibm-sans',
   display: 'swap',
 });
 
@@ -33,7 +40,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${playfair.variable} ${sourceSans.variable} ${ibmMono.variable}`}>
+    <html lang="en" className={`${fraunces.variable} ${sourceSerif.variable} ${ibmSans.variable} ${ibmMono.variable}`}>
       <body className="font-sans bg-background text-foreground antialiased">
         <QueryProvider>
           <AuthProvider>

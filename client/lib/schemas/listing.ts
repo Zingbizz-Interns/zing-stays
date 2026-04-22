@@ -6,6 +6,7 @@ export const roomTypeValues = [...occupancyRoomTypes, ...bhkRoomTypes] as const;
 export const propertyTypeValues = ['pg', 'hostel', 'apartment', 'flat'] as const;
 export const furnishingValues = ['furnished', 'semi', 'unfurnished'] as const;
 export const preferredTenantValues = ['students', 'working', 'family', 'any'] as const;
+const salePropertyTypeValues = ['apartment', 'flat'] as const;
 
 const optionalTrimmedString = z.preprocess((value) => {
   if (typeof value !== 'string') {
@@ -53,7 +54,7 @@ export const listingSchema = z.object({
   cityId: z.coerce.number().int().positive('Select a city'),
   localityId: z.coerce.number().int().positive('Select a locality'),
   intent: z.enum(['buy', 'rent']).default('rent'),
-  price: z.coerce.number().int().min(500, 'Minimum ₹500/month').max(500000),
+  price: z.coerce.number().int().min(500, 'Minimum price is ₹500').max(500000),
   roomType: z.enum(roomTypeValues),
   propertyType: z.enum(propertyTypeValues),
   deposit: optionalNonNegativeNumber,
@@ -70,6 +71,14 @@ export const listingSchema = z.object({
   rules: optionalTrimmedString,
   images: z.array(z.string()).default([]),
 }).superRefine((data, ctx) => {
+  if (data.intent === 'buy' && !salePropertyTypeValues.includes(data.propertyType as (typeof salePropertyTypeValues)[number])) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['propertyType'],
+      message: 'Sale listings must use Apartment or Flat as the property type.',
+    });
+  }
+
   if (!isRoomTypeAllowedForPropertyType(data.roomType, data.propertyType)) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
