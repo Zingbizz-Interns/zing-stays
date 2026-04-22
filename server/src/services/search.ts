@@ -3,6 +3,7 @@ import { db } from '../db';
 import { listings, cities, localities } from '../db/schema';
 import { eq } from 'drizzle-orm';
 import { logger } from '../lib/logger';
+import { ServiceUnavailableError, TooManyRequestsError } from '../lib/errors';
 
 export const searchClient = new Meilisearch({
   host: process.env.MEILISEARCH_HOST!,
@@ -10,6 +11,32 @@ export const searchClient = new Meilisearch({
 });
 
 export const listingsIndex = searchClient.index('listings');
+
+function getErrorMessage(err: unknown): string {
+  if (err instanceof Error) {
+    return err.message;
+  }
+
+  return typeof err === 'string' ? err : '';
+}
+
+export function normalizeSearchError(err: unknown): never {
+  const message = getErrorMessage(err);
+
+  if (message.includes('Too Many Requests')) {
+    throw new TooManyRequestsError('Search is temporarily rate limited. Please try again shortly.');
+  }
+
+  if (
+    message.includes('Unexpected token') ||
+    message.includes('<!DOCTYPE') ||
+    message.includes('not valid JSON')
+  ) {
+    throw new ServiceUnavailableError('Search is temporarily unavailable. Please try again shortly.');
+  }
+
+  throw err;
+}
 
 function isIndexNotFoundError(err: unknown): boolean {
   if (!err || typeof err !== 'object') return false;

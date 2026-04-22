@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { listingsIndex } from '../services/search';
+import { listingsIndex, normalizeSearchError } from '../services/search';
 import { buildSearchFilters, normalizeSortField } from '../lib/searchFilters';
 import { searchLimiter } from '../middleware/rateLimit';
 import { roomTypeValues } from '../lib/listingFields';
@@ -91,11 +91,17 @@ router.get('/', searchLimiter, asyncHandler(async (req, res) => {
     priceMax: maxPrice ?? price_max, availability, preferredTenants, furnishing,
   });
 
-  const results = await listingsIndex.search(q, {
-    filter: filters.join(' AND '),
-    sort: [sort],
-    limit: 30,
-  });
+  let results;
+  try {
+    results = await listingsIndex.search(q, {
+      filter: filters.join(' AND '),
+      sort: [sort],
+      limit: 30,
+    });
+  } catch (err) {
+    normalizeSearchError(err);
+  }
+
   res.json(results);
 }));
 
